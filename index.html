@@ -434,7 +434,7 @@
           <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
         </div>
 
-        <!-- 样式调整 -->
+        <!-- 样式调整 (带描边) -->
         <div class="control-group">
           <h3>样式调整</h3>
           <div class="field">
@@ -449,6 +449,17 @@
             <div class="color-row">
               <input type="color" id="textColorPicker" value="#1e293b">
               <span class="color-hex" id="textColorHex">#1e293b</span>
+            </div>
+          </div>
+          <!-- 新增：描边设置 -->
+          <div class="field">
+            <label>文字描边 (适合复杂背景)</label>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+              <div class="range-wrapper" style="flex:1;">
+                <input type="range" id="strokeSizeRange" min="0" max="10" value="0" step="0.5">
+                <span class="range-value" id="strokeSizeValue">0px</span>
+              </div>
+              <input type="color" id="strokeColorPicker" value="#ffffff" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="描边颜色">
             </div>
           </div>
           <div class="field">
@@ -602,6 +613,12 @@
       const fontSizeValue = document.getElementById('fontSizeValue');
       const textColorPicker = document.getElementById('textColorPicker');
       const textColorHex = document.getElementById('textColorHex');
+      
+      // 新增描边 DOM
+      const strokeSizeRange = document.getElementById('strokeSizeRange');
+      const strokeSizeValue = document.getElementById('strokeSizeValue');
+      const strokeColorPicker = document.getElementById('strokeColorPicker');
+
       const bgImageInput = document.getElementById('bgImageInput');
       const bgSourceInput = document.getElementById('bgSourceInput');
       const useBgImageCheckbox = document.getElementById('useBgImageCheckbox');
@@ -838,19 +855,13 @@
 
         // 3. 计算垂直居中起点
         const tagMarginBottom = 24 * (width / BASE_SIZE);
-        
-        // 【修改点 1】：字号从 14 改为 11
         const tagFontSize = Math.round(11 * (width / BASE_SIZE));
-        
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
         let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()} · ` : '';
         tagText += `${commercialSelect.value} · 字体：${currentFontDisplayName}`;
         const textMetrics = ctxMain.measureText(tagText);
-        
-        // 【修改点 2】：内边距等比缩小，让胶囊看起来更精致
         const tagPaddingX = 20 * (width / BASE_SIZE);
         const tagPaddingY = 6 * (width / BASE_SIZE);
-        
         const tagH = tagFontSize + tagPaddingY * 2;
         const tagW = textMetrics.width + tagPaddingX * 2;
         
@@ -863,9 +874,12 @@
           startY = topOffset + (availableHeight - textTotalHeight) / 2;
         }
 
-        // 4. 绘制文字
+        // 4. 绘制文字 (包含描边逻辑)
         const textColor = textColorPicker.value;
-        ctxMain.fillStyle = textColor;
+        const strokeSize = parseFloat(strokeSizeRange.value) * (width / BASE_SIZE);
+        const strokeColor = strokeColorPicker.value;
+
+        ctxMain.lineJoin = 'round'; // 防止描边出现尖刺
         ctxMain.textBaseline = 'top';
         
         let currentY = startY;
@@ -884,6 +898,16 @@
         renderLines.forEach(item => {
           if (item.text) {
             ctxMain.font = `${item.weight} ${item.size}px ${currentFontFamily}`;
+            
+            // 先画描边（如果有）
+            if (strokeSize > 0) {
+              ctxMain.strokeStyle = strokeColor;
+              ctxMain.lineWidth = strokeSize * 2; // Canvas 的 lineWidth 是向两边扩展的，*2 看起来更饱满
+              ctxMain.strokeText(item.text, x, currentY);
+            }
+            
+            // 再画填充色
+            ctxMain.fillStyle = textColor;
             ctxMain.fillText(item.text, x, currentY);
           }
           currentY += item.size * lineHeight;
@@ -925,14 +949,12 @@
 
       // ======= 保存逻辑 =======
       async function downloadImage(isRound, btnElement) {
-        // 按钮状态反馈
         const originalText = btnElement.textContent;
         btnElement.textContent = '保存中...';
         btnElement.classList.add('saving');
         btnElement.classList.remove('saved');
 
         try {
-          // 如果没有选择过路径，弹窗选择
           if (!saveDirectoryHandle) {
             if (!window.showDirectoryPicker) {
               alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
@@ -959,7 +981,6 @@
             }
           }
 
-          // 生成图片
           const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
           let exportWidth = quality === 'original' ? 2400 : 1200;
           
@@ -1009,7 +1030,6 @@
               await writable.write(blob);
               await writable.close();
               
-              // 成功反馈
               btnElement.textContent = '保存成功！';
               btnElement.classList.remove('saving');
               btnElement.classList.add('saved');
@@ -1166,6 +1186,14 @@
         textColorHex.textContent = this.value;
         drawPreviewCanvas();
       });
+      
+      // 描边事件
+      strokeSizeRange.addEventListener('input', function() {
+        strokeSizeValue.textContent = this.value + 'px';
+        drawPreviewCanvas();
+      });
+      strokeColorPicker.addEventListener('input', drawPreviewCanvas);
+
       titleFirstLineCheckbox.addEventListener('change', drawPreviewCanvas);
       
       alignBtns.forEach(btn => {
@@ -1291,6 +1319,8 @@
           previewText: previewTextInput.value,
           fontSize: fontSizeRange.value,
           textColor: textColorPicker.value,
+          strokeSize: strokeSizeRange.value,
+          strokeColor: strokeColorPicker.value,
           fontFamily: currentFontFamily,
           fontDisplayName: currentFontDisplayName,
           uploadedFontBase64: uploadedFontBase64,
@@ -1333,6 +1363,14 @@
             textColorPicker.value = settings.textColor;
             textColorHex.textContent = settings.textColor;
           }
+          if (settings.strokeSize !== undefined) {
+            strokeSizeRange.value = settings.strokeSize;
+            strokeSizeValue.textContent = settings.strokeSize + 'px';
+          }
+          if (settings.strokeColor) {
+            strokeColorPicker.value = settings.strokeColor;
+          }
+          
           if (settings.commercial) commercialSelect.value = settings.commercial;
           if (settings.bgSource) bgSourceInput.value = settings.bgSource;
           
