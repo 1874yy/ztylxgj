@@ -838,13 +838,19 @@
 
         // 3. 计算垂直居中起点
         const tagMarginBottom = 24 * (width / BASE_SIZE);
-        const tagFontSize = Math.round(14 * (width / BASE_SIZE));
+        
+        // 【修改点 1】：字号从 14 改为 11
+        const tagFontSize = Math.round(11 * (width / BASE_SIZE));
+        
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
         let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()} · ` : '';
         tagText += `${commercialSelect.value} · 字体：${currentFontDisplayName}`;
         const textMetrics = ctxMain.measureText(tagText);
-        const tagPaddingX = 24 * (width / BASE_SIZE);
-        const tagPaddingY = 8 * (width / BASE_SIZE);
+        
+        // 【修改点 2】：内边距等比缩小，让胶囊看起来更精致
+        const tagPaddingX = 20 * (width / BASE_SIZE);
+        const tagPaddingY = 6 * (width / BASE_SIZE);
+        
         const tagH = tagFontSize + tagPaddingY * 2;
         const tagW = textMetrics.width + tagPaddingX * 2;
         
