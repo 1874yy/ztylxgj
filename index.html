@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -351,6 +351,10 @@
       line-height: 1.2;
       padding: 0.4rem 0.2rem;
     }
+    .preset-source {
+      font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 0.55rem;
+      word-break: break-all;
+    }
 
     /* 文案库自定义下拉框（不依赖浏览器原生弹层，避免空白色块/被毛玻璃遮住） */
     .preset-select { position: relative; width: 100%; }
@@ -655,7 +659,9 @@
             <button class="btn-small" id="exportTextBtn">导出</button>
             <button class="btn-small" id="importTextBtn">导入</button>
             <input type="file" id="importFileInput" accept=".json" style="display: none;">
+            <button class="btn-small" id="resetTextPresetsBtn" style="grid-column: 1 / -1;">恢复 fengmian.json 文案</button>
           </div>
+          <p class="preset-source" id="presetSourceHint">文案来自 fengmian.json</p>
         </div>
 
         <!-- 预览文字 -->
@@ -720,6 +726,7 @@
     </div>
   </div>
 
+  <!-- 文案数据：所有文案内容都在同目录的 fengmian.json 里，页面启动时自动读取 -->
   <script>
     (function() {
       // --- DOM 获取 ---
@@ -759,6 +766,8 @@
       const textPresetTrigger = document.getElementById('textPresetTrigger');
       const textPresetLabel = document.getElementById('textPresetLabel');
       const textPresetMenu = document.getElementById('textPresetMenu');
+      const presetSourceHint = document.getElementById('presetSourceHint');
+      const resetTextPresetsBtn = document.getElementById('resetTextPresetsBtn');
       const saveTextPresetBtn = document.getElementById('saveTextPresetBtn');
       const deleteTextPresetBtn = document.getElementById('deleteTextPresetBtn');
       const exportTextBtn = document.getElementById('exportTextBtn');
@@ -840,65 +849,19 @@
         { name: '奶油', cx: '40%', cy: '60%', colors: ['#fef9c3', '#fde2e4', '#fefce8'] }
       ];
 
-      // 文案预设数组 (直接写在内置代码中，避免 fetch 跨域报错)
-      let textPresets = [
-        {
-          name: '旧书店',
-          content: '「拾光书店」将于本月31日闭店，感谢7年零4个月的陪伴。\n#最后的清仓\n「泛黄的旧书、缺页的诗集、折角的航海图、夹着干花的信笺、写满批注的词典」\n「吱呀作响的木梯、落灰的留声机、无人认领的雨伞、墙角那盆快枯死的绿萝」\n我们整理出约1200册书，其中有一部分，扉页上还留着陌生人的名字。\nBook & Memory，都带走吧。\n营业至每晚21:00，咖啡免费，故事自取。\n地址：老城梧桐街17号（二楼，门铃坏了请敲3下）\n句号。逗号，冒号：顿号、省略号…括号（）感叹号！'
-        },
-        {
-          name: '深夜电台',
-          content: 'FM 88.7《午夜慢递》，每周三、五 23:00—01:00 准时发声。\n#本期话题\n「一首老歌、半杯冷掉的茶、3条没发出去的消息、1个想起又放下的人」\n有人说，深夜的电台是给睡不着的人留的一盏小灯。\nListen quietly，别急着回答。\n今晚的BGM来自1998年的一张磁带，音质有些沙哑，但很温柔。\n参与方式：发送短信至 1069xxxx，或在本条下方留言。\n愿你被这个世界温柔以待。\n句号。逗号，冒号：顿号、省略号…括号（）破折号——'
-        },
-        {
-          name: '咖啡馆',
-          content: '「半糖咖啡」雨天限定：点任意1杯热饮，送手写书签1枚。\n#今日推荐\n「肉桂拿铁、海盐焦糖、2块方糖、1本翻旧的诗集、窗外下不停的雨」\n雨天的客人不多，音乐可以放得慢一点。\nSit by the window，看雨，也看路过的人。\n书签是店主手写的，一共20枚，送完为止。\n营业时间：09:00—22:00（雨天不打烊）\n地址：青石巷尽头，门口有把蓝色长椅的那家。\n句号。逗号，冒号：顿号、省略号…括号（）'
-        },
-        {
-          name: '松风琴馆',
-          content: '「松风琴馆」每月望日（农历十五）雅集1次，今已办至第24期。\n#本期曲目\n「《平沙落雁》1曲、《阳关三叠》1曲、新谱小调2首、即兴合奏1段」\n「一炉沉香、2盏清茶、3五知己、满室松风」\n馆主曰：琴不在技，在诚。\nPlay from the heart，听者自知。\n雅集免费，座席有限，先到者坐；迟来者，立听亦可。\n地址：城西松风巷5号（巷口有琴形石1块）\n句号。逗号，冒号：顿号、省略号…括号（）书名号《》'
-        },
-        {
-          name: 'The Lighthouse Log',
-          content: 'Entry 47. Weather: fog.\n\nThe lamp was lit at 18:00.\n\nWind from the northeast, force 5.\n\n1 ship passed at 21:30. No signal.\n\n2 gulls stayed on the rail all night.\n\nThe keeper\'s chair is empty again.\n\n"Keep the light on. Someone out there still needs it."\n\nSigned: K. — Day 219.'
-        },
-        {
-          name: "The Florist's Note",
-          content: 'Closed today. Sorry.\n\n1 bunch of white roses left on the step.\n\n2 cards. 3 phone numbers. No names.\n\n"Take one if you need it. Love should not go to waste."\n\nBack tomorrow at 08:00.'
-        },
-        {
-          name: '来自xhs-Hello羊 1',
-          content: '·二○二三年 一月五日 冬\n\n「亲爱的lamb：\n我从未给你写过信，冬天又开始下雪了。\n我几乎要忘记了你常陪我去的那家咖啡店里的牛乳拿铁是什么口味的了。\n想来有些怀念下班回家开门时你朝我拥抱扑面而来的淡淡清香，我好像再也找不到那种味道。\n最近有些睡不着了，总是躺在床上看着另一个枕头发了很久的呆。\n不知道是为何，你离开之后，桌上的花我也开始常换你喜欢的白洋桔梗，或许是以为有天你会回家打开门，冲我开心的说。'
-        },
-        {
-          name: '来自xhs-Hello羊 2',
-          content: '“是我最喜欢的花”\n你记得的 门牌号是1.2.3.4.5.6.7.8.9\n密码一直都是你的生日，那些你常用的物品我全都放在本来应该在的位置里。\n本来想打一通电话给你，才发现没有任何理由找到你。\n今年的冬天太冷了，冷到我们的关系已经结了冰。\n想必这封信你也不会收到 那就愿你一切平安。」'
-        },
-        {
-          name: '来自xhs-Hello羊 3',
-          content: '✞ ⋆ THE SEASON WHEN WE ARE SEPARATED ⋆ ✞\n ·眼淚 在愛里 是很珍貴的物品嗎\n ‘ 那为什么 我的心 為你疼痛不已 ’\n\n ⁺₊ ꧞ 來自 @Hello羊 和0123456789 未接來電 ₊⁺\n\n + IF YOU MISS ME · PLEASE CALL ME +\n ·想我的話 請給我打電話\n >> 「 晚間 21:53 一通未接來電 」 ♡\n\n ⁺․ 拜託 別讓我的思念 無數次落在沒有回音的雨季 ․⁺'
-        },
-        {
-          name: '来自xhs-Hello羊 4',
-          content: '⁺․ ⪩ 上世紀疼痛展覽架 ⪨︎ ․⁺\n⋆ OLD MEMORY FILM AND SAD GRAMODER ⋆\n 舊記憶膠片 和 悲傷留聲機\n\n· ✝︎ @Hello羊 ︎0123456789 時間溯洄 ✝︎  ·\n\n✞ 愛 本就是細水長流的消耗品\n⋆ CHAIN LOVE IN THE OLD CENTURY ⋆\n 旧世紀鎖鏈愛 · 世界僅此一份\n\n · 〔 決して贅沢を求めたことがない、私は手に入らない 〕\n 從未奢求 我得不到的'
-        },
-        {
-          name: '来自xhs-Hello羊 5',
-          content: '⋆ ꔫ STRAWBERRY GLASS SUGAR KNOT ⋆\n ·[ 叮咚 ] 您有一單甜品需要送達 \n ★ 草莓泡芙 和 珍珠奶昔冰 [ 預計收入 52♡ ]\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n ○ [ @Hello羊 ]正在後廚加急製作中···\n ● 前方剩餘2單 預計等待0123456789分鐘\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n𖦹 [ 訂單 正在派送 ] IT IS BEING DELIVERED ···\n ·收到後請及時品嘗 最佳賞味時期3H內 \n · ៸៸>𖥦<៸៸ಣ記得給個好評 喵'
-        },
-        {
-          name: '来自xhs-Hello羊 6',
-          content: '[ 低饱和余温笔记 ] 二○二一年 冬 小雪 ❅\nHi Vino最近いい夢はどうですか?\n‘ Hi Vino 最近好梦如何 ’\n最近發現馥香茉莉有利於安撫我的睡眠\n但夢境減少以後逐漸開始看不清你的身影\n我開始認為茉莉是最接近你的東西\n「 白色 香氣 無暇 忠貞不渝  」\nWhite, fragrant, flawless, loyal\n冗长的梦把我的生命拉的比白日光照的影还长\n这是我写下的第123456789篇笔记\n开始觉得标点符号也成为我梦里的场景\n。 ？ ！ …… ～ # ： “\nVino 私のそばに戻ってきて、私の夢にいないでください\n‘ Vino 回到我的身边 请你别在我的梦里 ’'
-        },
-        {
-          name: '来自xhs-Hello羊 7',
-          content: '✶\n梦境 开始变淡了\n[ 夢が薄れ始めた ]\n✶\n東京 烏雲 薄霧 变成窗前的白纱\n無人修復的時鐘倒影悠悠的轉著\n白色羽毛把童年陰影輕輕的撣去\n那么 谁来 带走 少女的 梦镜 ?\n✶\n在第13456789秒里 她笑着接受这守护的一切坍塌而尽\n留下的是文字的碎片 飘在白色的阴霾里\n， 。 ？ ！ …… ～ # （ ）\n✶\n“ 你知道吗 我总是这么想念你 ♥︎ ? ”\n[ 知ってる？私はいつもあなたがこんなに恋しい♥︎？ ]'
-        },
-        {
-          name: '来自xhs-Hello羊 8',
-          content: '✦ [ レトロエンジェルショップ ] ✦\n· 復古天使店 ·\n‘ ダーリン、何かお手伝いしましょうか ？ ’\n· 亲爱的 有什么可以帮助您 ? ·\n「 ‘ 天使紡織物 ’ 」\n「 僅在天国湖区域 羽毛季節产出 可售出给天国镇的织物天使进行加工 可以得到毛绒外衣 」\n「 ‘ 甜心织物堆 ’」\n「 随机出现在天国区域 白雨季晚间多产 可以进过白日夢砂糖加工製造成造梦衣 使用后可进入好梦乐园 」\n‘ 以上是天國必備物品 ’\n‘ 如果您有需要 可以隨時聯繫我們 天使聯絡線12 ’\n‘ 天使代码为 ， … ～ # “” @ ’\n‘ 天国での楽しい旅行をお祈りします ’\n‘ 祝您在天国旅行愉快 ’'
-        }
-      ];
+      // ===== 文案库数据 =====
+      // 所有文案内容都在同目录的 fengmian.json 里，HTML 不写文案内容。
+      // 页面启动时用 fetch 读取；如果读取失败，这里保持空数组并在页面上提示。
+      let FILE_TEXT_PRESETS = [];
+
+      // 页面里做的修改单独保存，不会覆盖 fengmian.json 的新内容
+      const CUSTOM_PRESETS_KEY = 'fontPreviewCustomPresets';       // 新增的自定义文案
+      const PRESET_OVERRIDES_KEY = 'fontPreviewPresetOverrides';   // 覆盖了文件里的某条文案
+      const DELETED_PRESETS_KEY = 'fontPreviewDeletedPresets';     // 删除了文件里的某条文案
+      const FILE_SIGNATURE_KEY = 'fontPreviewFileSignature';       // 判断 fengmian.json 是否改过
+      const LEGACY_PRESETS_KEY = 'fontPreviewTextPresets';         // 旧版本使用的存储 key
+
+      let textPresets = [];
 
       const PREVIEW_SIZE = 1500; 
       mainCanvas.width = PREVIEW_SIZE;
@@ -918,23 +881,153 @@
         return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
       }
 
-      // --- 文案库渲染与操作 ---
-      function initTextPresets() {
+      // --- 文案库：读取 fengmian.json + 合并本地修改 ---
+      function readJsonStorage(key, fallback) {
         try {
-          const saved = localStorage.getItem('fontPreviewTextPresets');
-          if (saved) {
-            const parsed = JSON.parse(saved);
-            const isValid = Array.isArray(parsed) && parsed.length > 0 &&
-              parsed.every(function(p) {
-                return p && typeof p.name === 'string' && typeof p.content === 'string';
-              });
-            if (isValid) {
-              textPresets = parsed;
-            }
-          }
+          const raw = localStorage.getItem(key);
+          if (!raw) return fallback;
+          const parsed = JSON.parse(raw);
+          return parsed === null || parsed === undefined ? fallback : parsed;
         } catch (e) {
-          console.warn('读取本地文案库失败，已使用内置文案', e);
+          return fallback;
         }
+      }
+
+      function writeJsonStorage(key, value) {
+        try {
+          localStorage.setItem(key, JSON.stringify(value));
+        } catch (e) {
+          alert('文案库保存失败：浏览器本地存储空间不足或被禁用。');
+        }
+      }
+
+      function isValidPreset(p) {
+        return !!p && typeof p.name === 'string' && typeof p.content === 'string';
+      }
+
+      function getFilePresetNames() {
+        return new Set(FILE_TEXT_PRESETS.map(function(p) { return p.name; }));
+      }
+
+      function getCustomPresets() {
+        const arr = readJsonStorage(CUSTOM_PRESETS_KEY, []);
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(isValidPreset).map(function(p) {
+          return { name: p.name, content: p.content };
+        });
+      }
+
+      function getPresetOverrides() {
+        const obj = readJsonStorage(PRESET_OVERRIDES_KEY, {});
+        return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+      }
+
+      function getDeletedPresetNames() {
+        const arr = readJsonStorage(DELETED_PRESETS_KEY, []);
+        if (!Array.isArray(arr)) return [];
+        return arr.filter(function(n) { return typeof n === 'string'; });
+      }
+
+      // 旧版本把整份文案列表存在 fontPreviewTextPresets 里。
+      // 这里只迁移“文件里没有的自定义文案”，文件里的文案以 fengmian.json 为准。
+      function migrateLegacyPresets() {
+        const legacy = readJsonStorage(LEGACY_PRESETS_KEY, null);
+        if (!Array.isArray(legacy)) return;
+
+        const fileNames = getFilePresetNames();
+        const custom = getCustomPresets();
+
+        legacy.forEach(function(p) {
+          if (!isValidPreset(p)) return;
+          if (fileNames.has(p.name)) return;
+          if (custom.some(function(c) { return c.name === p.name; })) return;
+          custom.push({ name: p.name, content: p.content });
+        });
+
+        writeJsonStorage(CUSTOM_PRESETS_KEY, custom);
+        try { localStorage.removeItem(LEGACY_PRESETS_KEY); } catch (e) {}
+      }
+
+      // fengmian.json 内容一变，就清掉针对文件文案的覆盖/删除记录，让新文案直接生效。
+      // 只新增/修改自定义文案时文件签名不变，本地记录会保留。
+      function syncFileSignature() {
+        const signature = JSON.stringify(FILE_TEXT_PRESETS);
+        let last = null;
+        try { last = localStorage.getItem(FILE_SIGNATURE_KEY); } catch (e) {}
+        if (last === signature) return;
+        try {
+          localStorage.removeItem(PRESET_OVERRIDES_KEY);
+          localStorage.removeItem(DELETED_PRESETS_KEY);
+          localStorage.setItem(FILE_SIGNATURE_KEY, signature);
+        } catch (e) {}
+      }
+
+      // 合并顺序：fengmian.json 文件 → 本地覆盖 → 本地新增 → 本地删除
+      function buildPresetList() {
+        const overrides = getPresetOverrides();
+        const deleted = new Set(getDeletedPresetNames());
+        const fileNames = getFilePresetNames();
+        const result = [];
+        const indexByName = new Map();
+
+        FILE_TEXT_PRESETS.forEach(function(p) {
+          if (deleted.has(p.name)) return;
+          const content = Object.prototype.hasOwnProperty.call(overrides, p.name)
+            ? String(overrides[p.name])
+            : p.content;
+          indexByName.set(p.name, result.length);
+          result.push({ name: p.name, content: content });
+        });
+
+        getCustomPresets().forEach(function(p) {
+          if (fileNames.has(p.name) || deleted.has(p.name)) return;
+          if (indexByName.has(p.name)) {
+            result[indexByName.get(p.name)].content = p.content;
+          } else {
+            indexByName.set(p.name, result.length);
+            result.push({ name: p.name, content: p.content });
+          }
+        });
+
+        return result;
+      }
+
+      // 从同目录的 fengmian.json 读取文案数据。
+      // 加时间参数是为了避开 GitHub Pages 的缓存，让每次刷新都能拿到最新 JSON。
+      async function loadPresetFile() {
+        const response = await fetch('./fengmian.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('JSON 顶层不是数组');
+
+        const cleaned = data.filter(isValidPreset).map(function(p) {
+          return { name: p.name, content: p.content };
+        });
+        if (cleaned.length === 0 && data.length > 0) {
+          throw new Error('数组里没有有效的 name / content 字段');
+        }
+        return cleaned;
+      }
+
+      async function initTextPresets() {
+        try {
+          FILE_TEXT_PRESETS = await loadPresetFile();
+          syncFileSignature();
+          migrateLegacyPresets();
+
+          presetSourceHint.textContent = FILE_TEXT_PRESETS.length > 0
+            ? '文案来自 fengmian.json（文件内 ' + FILE_TEXT_PRESETS.length + ' 条）'
+            : 'fengmian.json 里还没有文案';
+          presetSourceHint.style.color = FILE_TEXT_PRESETS.length > 0 ? '' : '#d97706';
+        } catch (err) {
+          console.error('读取 fengmian.json 失败:', err);
+          presetSourceHint.textContent = location.protocol === 'file:'
+            ? '本地双击打开时浏览器不允许读取 fengmian.json，请用网站地址访问'
+            : '没有读到 fengmian.json，请检查它是否和 index.html 在同一个文件夹';
+          presetSourceHint.style.color = '#dc2626';
+        }
+
+        textPresets = buildPresetList();
         renderTextPresets(0);
       }
 
@@ -1020,11 +1113,37 @@
         if (group) group.classList.remove('preset-menu-open');
       }
 
-      function saveTextPresetsToStorage() {
-        try {
-          localStorage.setItem('fontPreviewTextPresets', JSON.stringify(textPresets));
-        } catch (e) {
-          alert('文案库保存失败：浏览器本地存储空间不足或被禁用。');
+      // 保存一条文案：文件里已有的名字记为“覆盖”，没有的记为“自定义”
+      function savePresetToStorage(name, content) {
+        if (getFilePresetNames().has(name)) {
+          const overrides = getPresetOverrides();
+          overrides[name] = content;
+          writeJsonStorage(PRESET_OVERRIDES_KEY, overrides);
+        } else {
+          const custom = getCustomPresets();
+          const idx = custom.findIndex(function(p) { return p.name === name; });
+          if (idx !== -1) custom[idx].content = content;
+          else custom.push({ name: name, content: content });
+          writeJsonStorage(CUSTOM_PRESETS_KEY, custom);
+        }
+
+        // 保存说明这条文案不再处于“已删除”状态
+        const deleted = getDeletedPresetNames().filter(function(n) { return n !== name; });
+        writeJsonStorage(DELETED_PRESETS_KEY, deleted);
+      }
+
+      function removePresetFromStorage(name) {
+        if (getFilePresetNames().has(name)) {
+          const deleted = getDeletedPresetNames();
+          if (deleted.indexOf(name) === -1) deleted.push(name);
+          writeJsonStorage(DELETED_PRESETS_KEY, deleted);
+
+          const overrides = getPresetOverrides();
+          delete overrides[name];
+          writeJsonStorage(PRESET_OVERRIDES_KEY, overrides);
+        } else {
+          const custom = getCustomPresets().filter(function(p) { return p.name !== name; });
+          writeJsonStorage(CUSTOM_PRESETS_KEY, custom);
         }
       }
 
@@ -1065,17 +1184,14 @@
         if (!name) return alert('文案名称不能为空');
 
         const existingIdx = textPresets.findIndex(function(p) { return p.name === name; });
-        let savedIndex;
         if (existingIdx !== -1) {
           textPresets[existingIdx].content = content;
-          savedIndex = existingIdx;
         } else {
           textPresets.push({ name: name, content: content });
-          savedIndex = textPresets.length - 1;
         }
 
-        saveTextPresetsToStorage();
-        renderTextPresets(savedIndex);
+        savePresetToStorage(name, content);
+        renderTextPresets(existingIdx !== -1 ? existingIdx : textPresets.length - 1);
         closeTextPresetMenu();
         showToast('✅ 文案已保存到库');
       });
@@ -1087,22 +1203,23 @@
           return alert('请先在下拉框中选择要删除的文案');
         }
 
-        if (confirm(`确定要删除文案“${textPresets[idx].name}”吗？`)) {
-          textPresets.splice(idx, 1);
-          saveTextPresetsToStorage();
-          renderTextPresets(0);
-          closeTextPresetMenu();
-          if (textPresets.length > 0) {
-            applyTextPreset(0);
-          } else {
-            previewTextInput.value = '';
-            drawPreviewCanvas();
-          }
-          showToast('✅ 文案已删除');
+        const preset = textPresets[idx];
+        if (!confirm(`确定要删除文案“${preset.name}”吗？`)) return;
+
+        textPresets.splice(idx, 1);
+        removePresetFromStorage(preset.name);
+        renderTextPresets(0);
+        closeTextPresetMenu();
+        if (textPresets.length > 0) {
+          applyTextPreset(0);
+        } else {
+          previewTextInput.value = '';
+          drawPreviewCanvas();
         }
+        showToast('✅ 文案已删除');
       });
 
-      // 导出文案库
+      // 导出文案库（导出的是合并后的完整列表，可当作 fengmian.json 的数据源）
       exportTextBtn.addEventListener('click', function() {
         const dataStr = JSON.stringify(textPresets, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
@@ -1115,7 +1232,7 @@
         showToast('✅ 文案库已导出');
       });
 
-      // 导入文案库
+      // 导入文案库：同名覆盖，不同名追加，不会产生重复项
       importTextBtn.addEventListener('click', function() {
         importFileInput.click();
       });
@@ -1127,22 +1244,42 @@
         reader.onload = function(event) {
           try {
             const importedData = JSON.parse(event.target.result);
-            if (Array.isArray(importedData)) {
-              const cleanData = importedData.filter(function(p) {
-                return p && typeof p.name === 'string' && typeof p.content === 'string';
-              });
-              if (cleanData.length === 0) {
-                alert('导入的文案库为空，或数据格式不正确（需要 name / content 字段）');
-                return;
-              }
-              const firstNewIndex = textPresets.length;
-              textPresets = textPresets.concat(cleanData);
-              saveTextPresetsToStorage();
-              renderTextPresets(firstNewIndex);
-              showToast('✅ 文案库导入成功');
-            } else {
+            if (!Array.isArray(importedData)) {
               alert('导入文件格式不正确，应为 JSON 数组');
+              return;
             }
+
+            const cleanData = importedData.filter(isValidPreset);
+            if (cleanData.length === 0) {
+              alert('导入的文案库为空，或数据格式不正确（需要 name / content 字段）');
+              return;
+            }
+
+            const fileNames = getFilePresetNames();
+            const overrides = getPresetOverrides();
+            const custom = getCustomPresets();
+            const deleted = new Set(getDeletedPresetNames());
+
+            cleanData.forEach(function(p) {
+              deleted.delete(p.name);
+              if (fileNames.has(p.name)) {
+                overrides[p.name] = p.content;
+              } else {
+                const idx = custom.findIndex(function(c) { return c.name === p.name; });
+                if (idx !== -1) custom[idx].content = p.content;
+                else custom.push({ name: p.name, content: p.content });
+              }
+            });
+
+            writeJsonStorage(PRESET_OVERRIDES_KEY, overrides);
+            writeJsonStorage(CUSTOM_PRESETS_KEY, custom);
+            writeJsonStorage(DELETED_PRESETS_KEY, Array.from(deleted));
+
+            textPresets = buildPresetList();
+            const firstIndex = textPresets.findIndex(function(p) { return p.name === cleanData[0].name; });
+            renderTextPresets(firstIndex);
+            closeTextPresetMenu();
+            showToast('✅ 文案库导入成功');
           } catch (err) {
             alert('导入失败：文件不是有效的 JSON');
           }
@@ -1151,12 +1288,34 @@
         importFileInput.value = '';
       });
 
+      // 清除页面里对文件文案的覆盖/删除，重新以 fengmian.json 为准
+      resetTextPresetsBtn.addEventListener('click', function() {
+        if (!confirm('恢复为 fengmian.json 里的文案？\n\n页面里对文件文案的覆盖和删除会被清除；你自己新增的自定义文案会保留。')) return;
+
+        try {
+          localStorage.removeItem(PRESET_OVERRIDES_KEY);
+          localStorage.removeItem(DELETED_PRESETS_KEY);
+          localStorage.setItem(FILE_SIGNATURE_KEY, JSON.stringify(FILE_TEXT_PRESETS));
+        } catch (e) {}
+
+        textPresets = buildPresetList();
+        renderTextPresets(0);
+        closeTextPresetMenu();
+        if (textPresets.length > 0) {
+          applyTextPreset(0);
+        } else {
+          previewTextInput.value = '';
+          drawPreviewCanvas();
+        }
+        showToast('✅ 已恢复 fengmian.json 的文案');
+      });
+
       // --- Canvas 核心渲染 ---
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
         
         try {
-          await document.fonts.load(`16px "${currentFontFamily.replace(/'/g, '')}"`);
+          await document.fonts.load(`16px ${currentFontFamily}`);
         } catch(e) {}
         
         const width = mainCanvas.width;
@@ -1497,6 +1656,15 @@
               }, 1500);
               return;
             }
+
+            // 权限被拒绝或需要重新确认时，不能让按钮一直停在“保存中”
+            saveDirectoryHandle = null;
+            pathStatus.textContent = '未选择文件夹';
+            pathStatus.style.color = '';
+            btnElement.textContent = originalText;
+            btnElement.classList.remove('saving');
+            showToast('⚠️ 没有文件夹写入权限，请重新设定下载文件夹');
+            return;
           } catch (err) {
             console.error('写入失败:', err);
             alert('保存失败，请重新设定下载文件夹。');
@@ -1541,12 +1709,11 @@
         const suffix = isRound ? '圆角' : '方角';
         const fileName = `字体预览_${safeName}_${suffix}.png`;
         
-        const url = URL.createObjectURL(finalCanvas.toDataURL('image/png'));
+        // 这里不能用 URL.createObjectURL：它只接受 Blob，传 DataURL 字符串会直接报错
         const a = document.createElement('a');
-        a.href = url;
+        a.href = finalCanvas.toDataURL('image/png');
         a.download = fileName;
         a.click();
-        URL.revokeObjectURL(url);
         
         btnElement.textContent = '下载完成！';
         btnElement.classList.remove('saving');
@@ -1571,6 +1738,8 @@
             pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
             pathStatus.style.color = '#10b981';
             showToast('✅ 文件夹设置成功');
+          } else {
+            alert('没有获得文件夹写入权限，请重新选择。');
           }
         } catch (err) {
           if (err.name !== 'AbortError') console.error('选择目录失败:', err);
@@ -1746,6 +1915,10 @@
             activeGradient = null;
             document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
             drawPreviewCanvas();
+          };
+          img.onerror = function() {
+            imgLoaded = false;
+            alert('背景图片加载失败，请换一张图片试试。');
           };
           img.src = uploadedBgImageUrl;
         };
@@ -1973,6 +2146,12 @@
                 }
                 resolve();
               };
+              img.onerror = function() {
+                console.warn('保存的背景图已失效，已跳过。');
+                imgLoaded = false;
+                useBgImage = false;
+                resolve();
+              };
               img.src = uploadedBgImageUrl;
             } else {
               if (settings.activeGradient) {
@@ -1995,15 +2174,20 @@
         }
       }
 
-      // 初始化所有
-      initTextPresets();
-      loadSettings();
-      if (!previewTextInput.value && textPresets.length > 0) {
-        previewTextInput.value = textPresets[0].content;
-      }
-      // 让下拉框显示与当前文字真正对应的文案
-      syncTextPresetUI(textPresets.findIndex(function(p) { return p.content === previewTextInput.value; }));
-      drawPreviewCanvas();
+      // 初始化所有（文案库要等 fengmian.json 读取完成）
+      (async function init() {
+        drawPreviewCanvas();          // 先画一次空背景，避免页面一片空白
+        await initTextPresets();      // 读取 fengmian.json
+        loadSettings();               // 读取上次保存的设置
+        if (!previewTextInput.value && textPresets.length > 0) {
+          previewTextInput.value = textPresets[0].content;
+        }
+        // 让下拉框显示与当前文字真正对应的文案
+        syncTextPresetUI(textPresets.findIndex(function(p) { return p.content === previewTextInput.value; }));
+        drawPreviewCanvas();
+      })().catch(function(err) {
+        console.error('页面初始化失败:', err);
+      });
 
       // 裁剪模态逻辑
       openCropModalBtn.addEventListener('click', function() {
