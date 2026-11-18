@@ -2550,7 +2550,7 @@
             koLine,
             '',
             'Password 0 1 2 3 4 5 6 7 8 9',
-            '目录 你 我 的 日 月 —',
+            '目录：你 我 的 日 月 —',
             '、。？！~：；、[]『』（）《》—…',
             '0123456789'
           ].join('\n');
@@ -2909,11 +2909,14 @@
             reject(new Error('当前浏览器不支持 IndexedDB'));
             return;
           }
-          const request = indexedDB.open('fontPreviewTool', 1);
+          const request = indexedDB.open('fontPreviewTool', 2);
           request.onupgradeneeded = function() {
             const db = request.result;
             if (!db.objectStoreNames.contains('handles')) {
               db.createObjectStore('handles');
+            }
+            if (!db.objectStoreNames.contains('settings')) {
+              db.createObjectStore('settings');
             }
           };
           request.onsuccess = function() { resolve(request.result); };
@@ -2964,6 +2967,33 @@
           });
           db.close();
         } catch (e) {}
+      }
+
+      async function saveSettingsToDb(settings) {
+        const db = await openHandleDb();
+        await new Promise(function(resolve, reject) {
+          const tx = db.transaction('settings', 'readwrite');
+          tx.objectStore('settings').put(settings, 'fontPreviewSettings');
+          tx.oncomplete = function() { resolve(); };
+          tx.onerror = function() { reject(tx.error); };
+        });
+        db.close();
+      }
+
+      async function loadSettingsFromDb() {
+        try {
+          const db = await openHandleDb();
+          const settings = await new Promise(function(resolve, reject) {
+            const tx = db.transaction('settings', 'readonly');
+            const req = tx.objectStore('settings').get('fontPreviewSettings');
+            req.onsuccess = function() { resolve(req.result || null); };
+            req.onerror = function() { reject(req.error); };
+          });
+          db.close();
+          return settings;
+        } catch (e) {
+          return null;
+        }
       }
 
       async function restoreSaveDirectoryHandle() {
@@ -3453,8 +3483,8 @@
         drawPreviewCanvas();
       });
 
-      // 设置保存与读取（不保存文案，文案始终以 fengmian.json / 文案库为准）
-      saveSettingsBtn.addEventListener('click', function() {
+      // 设置保存与读取（大文件走 IndexedDB，localStorage 只留轻量样式）
+      saveSettingsBtn.addEventListener('click', async function() {
         const settings = {
           fontSize: fontSizeRange.value,
           textColor: textColorPicker.value,
@@ -3475,31 +3505,58 @@
           customColors: [customColor1.value, customColor2.value, customColor3.value, customColor4.value, customColor5.value],
           useColors: [useColor1.checked, useColor2.checked, useColor3.checked, useColor4.checked, useColor5.checked]
         };
-        
+
+        const lightweight = Object.assign({}, settings, {
+          uploadedFontBase64: null,
+          uploadedBgImageUrl: null
+        });
+
+        const originalText = saveSettingsBtn.textContent;
+        saveSettingsBtn.disabled = true;
+        saveSettingsBtn.textContent = '保存中…';
+
         try {
-          localStorage.setItem('fontPreviewSettings', JSON.stringify(settings));
+          await saveSettingsToDb(settings);
+          try { localStorage.setItem('fontPreviewSettings', JSON.stringify(lightweight)); } catch (e) {}
           saveHint.style.display = 'inline';
           setTimeout(() => saveHint.style.display = 'none', 3000);
-          showToast('✅ 设置已保存');
+          showToast('✅ 设置已保存（含字体和背景图）');
         } catch (e) {
-          alert('保存失败，可能是本地存储空间不足。');
+          console.warn('IndexedDB 保存设置失败', e);
+          try {
+            localStorage.setItem('fontPreviewSettings', JSON.stringify(lightweight));
+            saveHint.style.display = 'inline';
+            setTimeout(() => saveHint.style.display = 'none', 3000);
+            showToast('⚠️ 字体/背景图较大，已保存样式设置；字体和背景图需重新上传');
+          } catch (e2) {
+            alert('保存失败：浏览器本地存储空间不足，请清除站点数据或换更小的字体/背景图。');
+          }
+        } finally {
+          saveSettingsBtn.disabled = false;
+          saveSettingsBtn.textContent = originalText;
         }
       });
 
-      function loadSettings() {
-        let saved = null;
+      async function loadSettings() {
+        let settings = null;
         try {
-          saved = localStorage.getItem('fontPreviewSettings');
+          settings = await loadSettingsFromDb();
         } catch (e) {
-          console.warn('读取本地设置失败', e);
+          console.warn('读取 IndexedDB 设置失败', e);
         }
-        if (!saved) {
+        if (!settings) {
+          try {
+            const raw = localStorage.getItem('fontPreviewSettings');
+            if (raw) settings = JSON.parse(raw);
+          } catch (e) {
+            console.warn('读取本地设置失败', e);
+          }
+        }
+        if (!settings) {
           drawPreviewCanvas();
           return;
         }
         try {
-          const settings = JSON.parse(saved);
-          
           if (settings.fontSize) {
             fontSizeRange.value = settings.fontSize;
             fontSizeValue.textContent = settings.fontSize + 'px';
@@ -3633,7 +3690,7 @@
       (async function init() {
         drawPreviewCanvas();          // 先画一次空背景，避免页面一片空白
         await initTextPresets();      // 读取 fengmian.json
-        loadSettings();               // 读取上次保存的设置
+        await loadSettings();         // 读取上次保存的设置（大文件在 IndexedDB）
         restoreSaveDirectoryHandle(); // 恢复上次选择的下载文件夹
         if (!previewTextInput.value && textPresets.length > 0) {
           previewTextInput.value = textPresets[0].content;
