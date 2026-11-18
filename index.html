@@ -126,18 +126,15 @@
       box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.02);
     }
 
-    /* 彻底重置下拉框为最原始状态，绝对不会出现灰条和无法点击的情况 */
+    /* 彻底修复下拉框：使用原生外观，不再搞半透明，保证能点开 */
     .field select {
-      all: unset;
-      box-sizing: border-box;
-      width: 100%;
-      padding: 0.5rem;
-      border: 1px solid #cbd5e1;
+      appearance: auto !important;
+      -webkit-appearance: menulist !important;
       background-color: #ffffff;
-      color: #1e293b;
-      font-size: 0.85rem;
-      border-radius: 0.5rem;
       cursor: pointer;
+      z-index: 100;
+      border-radius: 0.5rem; /* 略微改小圆角，更像原生 */
+      padding: 0.5rem;
     }
 
     .field textarea {
@@ -354,6 +351,51 @@
       line-height: 1.2;
       padding: 0.4rem 0.2rem;
     }
+
+    /* 文案库自定义下拉框（不依赖浏览器原生弹层，避免空白色块/被毛玻璃遮住） */
+    .preset-select { position: relative; width: 100%; }
+    .preset-trigger {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+      padding: 0.55rem 0.9rem; border: 1px solid rgba(148, 163, 184, 0.45);
+      border-radius: 0.75rem; background: #ffffff; color: #1e293b;
+      font-family: inherit; font-size: 0.85rem; line-height: 1.4; text-align: left;
+      cursor: pointer; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .preset-trigger:hover { border-color: #94a3b8; }
+    .preset-trigger:focus-visible {
+      outline: none; border-color: #64748b; box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.16);
+    }
+    .preset-trigger:disabled { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+    .preset-select.open .preset-trigger {
+      border-color: #64748b; box-shadow: 0 0 0 3px rgba(100, 116, 139, 0.16);
+    }
+    .preset-trigger-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .preset-arrow { flex-shrink: 0; font-size: 0.7rem; color: #64748b; transition: transform 0.2s; }
+    .preset-select.open .preset-arrow { transform: rotate(180deg); }
+
+    .preset-menu {
+      position: absolute; z-index: 1200; left: 0; right: 0; top: calc(100% + 6px);
+      display: none; max-height: 260px; overflow-y: auto; padding: 0.3rem;
+      background: #ffffff; border: 1px solid rgba(148, 163, 184, 0.35);
+      border-radius: 0.9rem; box-shadow: 0 18px 40px -12px rgba(15, 23, 42, 0.3);
+    }
+    .preset-select.open .preset-menu { display: block; }
+    /* 展开时把整张卡片抬到上层，避免被下方“当前预览文字”卡片盖住 */
+    .control-group.preset-menu-open { position: relative; z-index: 60; }
+    .preset-option {
+      display: flex; align-items: center; gap: 0.5rem; width: 100%;
+      padding: 0.5rem 0.7rem; border: 0; border-radius: 0.6rem;
+      background: transparent; color: #334155; font-family: inherit; font-size: 0.82rem;
+      line-height: 1.35; text-align: left; cursor: pointer; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+    }
+    .preset-option:hover { background: #f1f5f9; }
+    .preset-option.active { background: #e2e8f0; color: #0f172a; font-weight: 600; }
+    .preset-option-name { overflow: hidden; text-overflow: ellipsis; }
+    .preset-option-check { margin-left: auto; flex-shrink: 0; color: #3b82f6; opacity: 0; }
+    .preset-option.active .preset-option-check { opacity: 1; }
+    #textPresetSelect { display: none !important; }
 
     .toast {
       position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
@@ -597,7 +639,15 @@
           <h3>文案库</h3>
           <div class="field">
             <label>选择预设文案</label>
-            <select id="textPresetSelect"></select>
+            <div class="preset-select" id="textPresetSelectBox">
+              <button type="button" class="preset-trigger" id="textPresetTrigger"
+                      aria-haspopup="listbox" aria-expanded="false">
+                <span class="preset-trigger-label" id="textPresetLabel">加载中…</span>
+                <span class="preset-arrow">▾</span>
+              </button>
+              <div class="preset-menu" id="textPresetMenu" role="listbox" aria-label="预设文案列表"></div>
+              <select id="textPresetSelect" tabindex="-1" aria-hidden="true"></select>
+            </div>
           </div>
           <div class="text-preset-actions">
             <button class="btn-small" id="saveTextPresetBtn">保存/覆盖</button>
@@ -703,7 +753,12 @@
       const openCropModalBtn = document.getElementById('openCropModalBtn');
       const previewTextInput = document.getElementById('previewTextInput');
       
+      // 文案库相关 DOM
       const textPresetSelect = document.getElementById('textPresetSelect');
+      const textPresetSelectBox = document.getElementById('textPresetSelectBox');
+      const textPresetTrigger = document.getElementById('textPresetTrigger');
+      const textPresetLabel = document.getElementById('textPresetLabel');
+      const textPresetMenu = document.getElementById('textPresetMenu');
       const saveTextPresetBtn = document.getElementById('saveTextPresetBtn');
       const deleteTextPresetBtn = document.getElementById('deleteTextPresetBtn');
       const exportTextBtn = document.getElementById('exportTextBtn');
@@ -754,7 +809,8 @@
       const pathStatus = document.getElementById('pathStatus');
 
       // --- 状态变量 ---
-      let currentFontFamily = '';
+      const DEFAULT_FONT_FAMILY = "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+      let currentFontFamily = DEFAULT_FONT_FAMILY;
       let currentFontDisplayName = '系统默认';
       let uploadedFontUrl = null;
       let uploadedFontBase64 = null;
@@ -772,8 +828,77 @@
       
       let saveDirectoryHandle = null;
 
-      // 文案预设数组
-      let textPresets = [];
+      // 晕染背景预设数据（之前缺失，导致脚本初始化中断、文案下拉框空白）
+      const gradientPresets = [
+        { name: '樱雾', cx: '28%', cy: '28%', colors: ['#fde2e4', '#fbcfe8', '#fff1f2'] },
+        { name: '海盐', cx: '72%', cy: '30%', colors: ['#c1dfe8', '#bae6fd', '#eff6ff'] },
+        { name: '柠檬苏打', cx: '30%', cy: '72%', colors: ['#fef3c7', '#fde68a', '#fffbeb'] },
+        { name: '薰衣草', cx: '70%', cy: '68%', colors: ['#e9d5ff', '#d8b4fe', '#f5f3ff'] },
+        { name: '薄荷', cx: '25%', cy: '35%', colors: ['#d1fae5', '#a7f3d0', '#ecfdf5'] },
+        { name: '晚霞', cx: '75%', cy: '25%', colors: ['#fecdd3', '#fdba74', '#fff7ed'] },
+        { name: '雾蓝', cx: '50%', cy: '20%', colors: ['#e2e8f0', '#cbd5e1', '#f8fafc'] },
+        { name: '奶油', cx: '40%', cy: '60%', colors: ['#fef9c3', '#fde2e4', '#fefce8'] }
+      ];
+
+      // 文案预设数组 (直接写在内置代码中，避免 fetch 跨域报错)
+      let textPresets = [
+        {
+          name: '旧书店',
+          content: '「拾光书店」将于本月31日闭店，感谢7年零4个月的陪伴。\n#最后的清仓\n「泛黄的旧书、缺页的诗集、折角的航海图、夹着干花的信笺、写满批注的词典」\n「吱呀作响的木梯、落灰的留声机、无人认领的雨伞、墙角那盆快枯死的绿萝」\n我们整理出约1200册书，其中有一部分，扉页上还留着陌生人的名字。\nBook & Memory，都带走吧。\n营业至每晚21:00，咖啡免费，故事自取。\n地址：老城梧桐街17号（二楼，门铃坏了请敲3下）\n句号。逗号，冒号：顿号、省略号…括号（）感叹号！'
+        },
+        {
+          name: '深夜电台',
+          content: 'FM 88.7《午夜慢递》，每周三、五 23:00—01:00 准时发声。\n#本期话题\n「一首老歌、半杯冷掉的茶、3条没发出去的消息、1个想起又放下的人」\n有人说，深夜的电台是给睡不着的人留的一盏小灯。\nListen quietly，别急着回答。\n今晚的BGM来自1998年的一张磁带，音质有些沙哑，但很温柔。\n参与方式：发送短信至 1069xxxx，或在本条下方留言。\n愿你被这个世界温柔以待。\n句号。逗号，冒号：顿号、省略号…括号（）破折号——'
+        },
+        {
+          name: '咖啡馆',
+          content: '「半糖咖啡」雨天限定：点任意1杯热饮，送手写书签1枚。\n#今日推荐\n「肉桂拿铁、海盐焦糖、2块方糖、1本翻旧的诗集、窗外下不停的雨」\n雨天的客人不多，音乐可以放得慢一点。\nSit by the window，看雨，也看路过的人。\n书签是店主手写的，一共20枚，送完为止。\n营业时间：09:00—22:00（雨天不打烊）\n地址：青石巷尽头，门口有把蓝色长椅的那家。\n句号。逗号，冒号：顿号、省略号…括号（）'
+        },
+        {
+          name: '松风琴馆',
+          content: '「松风琴馆」每月望日（农历十五）雅集1次，今已办至第24期。\n#本期曲目\n「《平沙落雁》1曲、《阳关三叠》1曲、新谱小调2首、即兴合奏1段」\n「一炉沉香、2盏清茶、3五知己、满室松风」\n馆主曰：琴不在技，在诚。\nPlay from the heart，听者自知。\n雅集免费，座席有限，先到者坐；迟来者，立听亦可。\n地址：城西松风巷5号（巷口有琴形石1块）\n句号。逗号，冒号：顿号、省略号…括号（）书名号《》'
+        },
+        {
+          name: 'The Lighthouse Log',
+          content: 'Entry 47. Weather: fog.\n\nThe lamp was lit at 18:00.\n\nWind from the northeast, force 5.\n\n1 ship passed at 21:30. No signal.\n\n2 gulls stayed on the rail all night.\n\nThe keeper\'s chair is empty again.\n\n"Keep the light on. Someone out there still needs it."\n\nSigned: K. — Day 219.'
+        },
+        {
+          name: "The Florist's Note",
+          content: 'Closed today. Sorry.\n\n1 bunch of white roses left on the step.\n\n2 cards. 3 phone numbers. No names.\n\n"Take one if you need it. Love should not go to waste."\n\nBack tomorrow at 08:00.'
+        },
+        {
+          name: '来自xhs-Hello羊 1',
+          content: '·二○二三年 一月五日 冬\n\n「亲爱的lamb：\n我从未给你写过信，冬天又开始下雪了。\n我几乎要忘记了你常陪我去的那家咖啡店里的牛乳拿铁是什么口味的了。\n想来有些怀念下班回家开门时你朝我拥抱扑面而来的淡淡清香，我好像再也找不到那种味道。\n最近有些睡不着了，总是躺在床上看着另一个枕头发了很久的呆。\n不知道是为何，你离开之后，桌上的花我也开始常换你喜欢的白洋桔梗，或许是以为有天你会回家打开门，冲我开心的说。'
+        },
+        {
+          name: '来自xhs-Hello羊 2',
+          content: '“是我最喜欢的花”\n你记得的 门牌号是1.2.3.4.5.6.7.8.9\n密码一直都是你的生日，那些你常用的物品我全都放在本来应该在的位置里。\n本来想打一通电话给你，才发现没有任何理由找到你。\n今年的冬天太冷了，冷到我们的关系已经结了冰。\n想必这封信你也不会收到 那就愿你一切平安。」'
+        },
+        {
+          name: '来自xhs-Hello羊 3',
+          content: '✞ ⋆ THE SEASON WHEN WE ARE SEPARATED ⋆ ✞\n ·眼淚 在愛里 是很珍貴的物品嗎\n ‘ 那为什么 我的心 為你疼痛不已 ’\n\n ⁺₊ ꧞ 來自 @Hello羊 和0123456789 未接來電 ₊⁺\n\n + IF YOU MISS ME · PLEASE CALL ME +\n ·想我的話 請給我打電話\n >> 「 晚間 21:53 一通未接來電 」 ♡\n\n ⁺․ 拜託 別讓我的思念 無數次落在沒有回音的雨季 ․⁺'
+        },
+        {
+          name: '来自xhs-Hello羊 4',
+          content: '⁺․ ⪩ 上世紀疼痛展覽架 ⪨︎ ․⁺\n⋆ OLD MEMORY FILM AND SAD GRAMODER ⋆\n 舊記憶膠片 和 悲傷留聲機\n\n· ✝︎ @Hello羊 ︎0123456789 時間溯洄 ✝︎  ·\n\n✞ 愛 本就是細水長流的消耗品\n⋆ CHAIN LOVE IN THE OLD CENTURY ⋆\n 旧世紀鎖鏈愛 · 世界僅此一份\n\n · 〔 決して贅沢を求めたことがない、私は手に入らない 〕\n 從未奢求 我得不到的'
+        },
+        {
+          name: '来自xhs-Hello羊 5',
+          content: '⋆ ꔫ STRAWBERRY GLASS SUGAR KNOT ⋆\n ·[ 叮咚 ] 您有一單甜品需要送達 \n ★ 草莓泡芙 和 珍珠奶昔冰 [ 預計收入 52♡ ]\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n ○ [ @Hello羊 ]正在後廚加急製作中···\n ● 前方剩餘2單 預計等待0123456789分鐘\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n𖦹 [ 訂單 正在派送 ] IT IS BEING DELIVERED ···\n ·收到後請及時品嘗 最佳賞味時期3H內 \n · ៸៸>𖥦<៸៸ಣ記得給個好評 喵'
+        },
+        {
+          name: '来自xhs-Hello羊 6',
+          content: '[ 低饱和余温笔记 ] 二○二一年 冬 小雪 ❅\nHi Vino最近いい夢はどうですか?\n‘ Hi Vino 最近好梦如何 ’\n最近發現馥香茉莉有利於安撫我的睡眠\n但夢境減少以後逐漸開始看不清你的身影\n我開始認為茉莉是最接近你的東西\n「 白色 香氣 無暇 忠貞不渝  」\nWhite, fragrant, flawless, loyal\n冗长的梦把我的生命拉的比白日光照的影还长\n这是我写下的第123456789篇笔记\n开始觉得标点符号也成为我梦里的场景\n。 ？ ！ …… ～ # ： “\nVino 私のそばに戻ってきて、私の夢にいないでください\n‘ Vino 回到我的身边 请你别在我的梦里 ’'
+        },
+        {
+          name: '来自xhs-Hello羊 7',
+          content: '✶\n梦境 开始变淡了\n[ 夢が薄れ始めた ]\n✶\n東京 烏雲 薄霧 变成窗前的白纱\n無人修復的時鐘倒影悠悠的轉著\n白色羽毛把童年陰影輕輕的撣去\n那么 谁来 带走 少女的 梦镜 ?\n✶\n在第13456789秒里 她笑着接受这守护的一切坍塌而尽\n留下的是文字的碎片 飘在白色的阴霾里\n， 。 ？ ！ …… ～ # （ ）\n✶\n“ 你知道吗 我总是这么想念你 ♥︎ ? ”\n[ 知ってる？私はいつもあなたがこんなに恋しい♥︎？ ]'
+        },
+        {
+          name: '来自xhs-Hello羊 8',
+          content: '✦ [ レトロエンジェルショップ ] ✦\n· 復古天使店 ·\n‘ ダーリン、何かお手伝いしましょうか ？ ’\n· 亲爱的 有什么可以帮助您 ? ·\n「 ‘ 天使紡織物 ’ 」\n「 僅在天国湖区域 羽毛季節产出 可售出给天国镇的织物天使进行加工 可以得到毛绒外衣 」\n「 ‘ 甜心织物堆 ’」\n「 随机出现在天国区域 白雨季晚间多产 可以进过白日夢砂糖加工製造成造梦衣 使用后可进入好梦乐园 」\n‘ 以上是天國必備物品 ’\n‘ 如果您有需要 可以隨時聯繫我們 天使聯絡線12 ’\n‘ 天使代码为 ， … ～ # “” @ ’\n‘ 天国での楽しい旅行をお祈りします ’\n‘ 祝您在天国旅行愉快 ’'
+        }
+      ];
 
       const PREVIEW_SIZE = 1500; 
       mainCanvas.width = PREVIEW_SIZE;
@@ -793,110 +918,191 @@
         return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
       }
 
-      // --- 文案库：从 JSON 加载及操作 ---
-      async function fetchDefaultPresets() {
+      // --- 文案库渲染与操作 ---
+      function initTextPresets() {
         try {
-          const response = await fetch('fengmian.json');
-          if (!response.ok) throw new Error('Network response was not ok');
-          const data = await response.json();
-          return data;
-        } catch (error) {
-          console.error('读取 JSON 失败:', error);
-          if (window.location.protocol === 'file:') {
-            alert("提示：本地直接打开 HTML 无法读取外部 JSON，请使用 Live Server 或部署后运行。\n\n为了防止页面空白，已为您加载内置的备用数据。");
+          const saved = localStorage.getItem('fontPreviewTextPresets');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            const isValid = Array.isArray(parsed) && parsed.length > 0 &&
+              parsed.every(function(p) {
+                return p && typeof p.name === 'string' && typeof p.content === 'string';
+              });
+            if (isValid) {
+              textPresets = parsed;
+            }
           }
-          // 后备数据：直接嵌入在代码中防止报错
-          return [
-            { name: '旧书店', content: '「拾光书店」将于本月31日闭店，感谢7年零4个月的陪伴。\n#最后的清仓\n「泛黄的旧书、缺页的诗集、折角的航海图、夹着干花的信笺、写满批注的词典」\n「吱呀作响的木梯、落灰的留声机、无人认领的雨伞、墙角那盆快枯死的绿萝」\n我们整理出约1200册书，其中有一部分，扉页上还留着陌生人的名字。\nBook & Memory，都带走吧。\n营业至每晚21:00，咖啡免费，故事自取。\n地址：老城梧桐街17号（二楼，门铃坏了请敲3下）\n句号。逗号，冒号：顿号、省略号…括号（）感叹号！' },
-            { name: '深夜电台', content: 'FM 88.7《午夜慢递》，每周三、五 23:00—01:00 准时发声。\n#本期话题\n「一首老歌、半杯冷掉的茶、3条没发出去的消息、1个想起又放下的人」\n有人说，深夜的电台是给睡不着的人留的一盏小灯。\nListen quietly，别急着回答。\n今晚的BGM来自1998年的一张磁带，音质有些沙哑，但很温柔。\n参与方式：发送短信至 1069xxxx，或在本条下方留言。\n愿你被这个世界温柔以待。\n句号。逗号，冒号：顿号、省略号…括号（）破折号——' },
-            { name: '咖啡馆', content: '「半糖咖啡」雨天限定：点任意1杯热饮，送手写书签1枚。\n#今日推荐\n「肉桂拿铁、海盐焦糖、2块方糖、1本翻旧的诗集、窗外下不停的雨」\n雨天的客人不多，音乐可以放得慢一点。\nSit by the window，看雨，也看路过的人。\n书签是店主手写的，一共20枚，送完为止。\n营业时间：09:00—22:00（雨天不打烊）\n地址：青石巷尽头，门口有把蓝色长椅的那家。\n句号。逗号，冒号：顿号、省略号…括号（）' }
-          ];
+        } catch (e) {
+          console.warn('读取本地文案库失败，已使用内置文案', e);
         }
+        renderTextPresets(0);
       }
 
-      async function initTextPresets() {
-        const defaultPresets = await fetchDefaultPresets();
-        
-        const saved = localStorage.getItem('fontPreviewTextPresets');
-        if (saved) {
-          try {
-            textPresets = JSON.parse(saved);
-          } catch (e) {
-            textPresets = [...defaultPresets];
-          }
-        } else {
-          textPresets = [...defaultPresets];
-        }
-        renderTextPresets();
-      }
-
-      function renderTextPresets() {
+      function renderTextPresets(preferredIndex) {
         textPresetSelect.innerHTML = '';
-        textPresets.forEach((preset, index) => {
+        textPresetMenu.innerHTML = '';
+
+        textPresets.forEach(function(preset, index) {
           const option = document.createElement('option');
           option.value = index;
           option.textContent = preset.name;
           textPresetSelect.appendChild(option);
+
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'preset-option';
+          item.dataset.index = index;
+          item.setAttribute('role', 'option');
+          item.setAttribute('aria-selected', 'false');
+
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'preset-option-name';
+          nameSpan.textContent = preset.name;
+
+          const checkSpan = document.createElement('span');
+          checkSpan.className = 'preset-option-check';
+          checkSpan.textContent = '✓';
+
+          item.appendChild(nameSpan);
+          item.appendChild(checkSpan);
+          item.addEventListener('click', function() {
+            applyTextPreset(index);
+            closeTextPresetMenu();
+          });
+          textPresetMenu.appendChild(item);
         });
-        if (textPresets.length > 0) {
-          textPresetSelect.selectedIndex = 0;
+
+        let index = 0;
+        if (typeof preferredIndex === 'number' && textPresets[preferredIndex]) {
+          index = preferredIndex;
+        } else if (textPresets.length === 0) {
+          index = -1;
         }
+        syncTextPresetUI(index);
+      }
+
+      function syncTextPresetUI(index) {
+        const valid = index >= 0 && index < textPresets.length;
+        textPresetSelect.value = valid ? String(index) : '';
+        textPresetLabel.textContent = valid
+          ? textPresets[index].name
+          : (textPresets.length > 0 ? '请选择文案' : '暂无文案');
+        textPresetTrigger.disabled = textPresets.length === 0;
+
+        textPresetMenu.querySelectorAll('.preset-option').forEach(function(el) {
+          const isActive = valid && Number(el.dataset.index) === index;
+          el.classList.toggle('active', isActive);
+          el.setAttribute('aria-selected', isActive ? 'true' : 'false');
+        });
+      }
+
+      function applyTextPreset(index) {
+        if (!textPresets[index]) return;
+        syncTextPresetUI(index);
+        previewTextInput.value = textPresets[index].content;
+        drawPreviewCanvas();
+      }
+
+      function openTextPresetMenu() {
+        if (textPresets.length === 0) return;
+        textPresetSelectBox.classList.add('open');
+        textPresetTrigger.setAttribute('aria-expanded', 'true');
+        const group = textPresetSelectBox.closest('.control-group');
+        if (group) group.classList.add('preset-menu-open');
+        const active = textPresetMenu.querySelector('.preset-option.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      }
+
+      function closeTextPresetMenu() {
+        textPresetSelectBox.classList.remove('open');
+        textPresetTrigger.setAttribute('aria-expanded', 'false');
+        const group = textPresetSelectBox.closest('.control-group');
+        if (group) group.classList.remove('preset-menu-open');
       }
 
       function saveTextPresetsToStorage() {
-        localStorage.setItem('fontPreviewTextPresets', JSON.stringify(textPresets));
+        try {
+          localStorage.setItem('fontPreviewTextPresets', JSON.stringify(textPresets));
+        } catch (e) {
+          alert('文案库保存失败：浏览器本地存储空间不足或被禁用。');
+        }
       }
 
-      textPresetSelect.addEventListener('change', function() {
-        const idx = parseInt(this.value);
-        if (!isNaN(idx) && textPresets[idx]) {
-          previewTextInput.value = textPresets[idx].content;
-          drawPreviewCanvas();
+      // 点击下拉框展开/收起
+      textPresetTrigger.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (textPresetSelectBox.classList.contains('open')) {
+          closeTextPresetMenu();
+        } else {
+          openTextPresetMenu();
         }
       });
 
+      // 点击页面其他地方收起
+      document.addEventListener('click', function(e) {
+        if (!textPresetSelectBox.contains(e.target)) closeTextPresetMenu();
+      });
+
+      // 按 Esc 收起
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeTextPresetMenu();
+      });
+
+      // 保存/覆盖当前文案
       saveTextPresetBtn.addEventListener('click', function() {
         const content = previewTextInput.value.trim();
         if (!content) return alert('当前文案为空，无法保存');
-        
-        const currentIdx = parseInt(textPresetSelect.value);
-        let name = prompt('请为这段文案命名（若当前已选中预设，将直接覆盖）：', 
-          (!isNaN(currentIdx) && textPresets[currentIdx]) ? textPresets[currentIdx].name : `新文案_${new Date().toLocaleTimeString()}`
-        );
-        
-        if (!name) return;
 
-        if (!isNaN(currentIdx) && textPresets[currentIdx] && textPresets[currentIdx].name === name) {
-          textPresets[currentIdx].content = content;
+        const currentIdx = parseInt(textPresetSelect.value, 10);
+        const currentPreset = (!isNaN(currentIdx) && textPresets[currentIdx]) ? textPresets[currentIdx] : null;
+
+        let name = prompt('请为这段文案命名（若名字已存在，将覆盖原有文案）：',
+          currentPreset ? currentPreset.name : `新文案_${new Date().toLocaleTimeString()}`
+        );
+
+        if (name === null) return;
+        name = name.trim();
+        if (!name) return alert('文案名称不能为空');
+
+        const existingIdx = textPresets.findIndex(function(p) { return p.name === name; });
+        let savedIndex;
+        if (existingIdx !== -1) {
+          textPresets[existingIdx].content = content;
+          savedIndex = existingIdx;
         } else {
-          textPresets.push({ name, content });
+          textPresets.push({ name: name, content: content });
+          savedIndex = textPresets.length - 1;
         }
-        
+
         saveTextPresetsToStorage();
-        renderTextPresets();
-        textPresetSelect.value = textPresets.findIndex(p => p.name === name);
+        renderTextPresets(savedIndex);
+        closeTextPresetMenu();
         showToast('✅ 文案已保存到库');
       });
 
+      // 删除当前文案
       deleteTextPresetBtn.addEventListener('click', function() {
-        const idx = parseInt(textPresetSelect.value);
-        if (isNaN(idx) || !textPresets[idx]) return;
+        const idx = parseInt(textPresetSelect.value, 10);
+        if (isNaN(idx) || !textPresets[idx]) {
+          return alert('请先在下拉框中选择要删除的文案');
+        }
 
         if (confirm(`确定要删除文案“${textPresets[idx].name}”吗？`)) {
           textPresets.splice(idx, 1);
           saveTextPresetsToStorage();
-          renderTextPresets();
+          renderTextPresets(0);
+          closeTextPresetMenu();
           if (textPresets.length > 0) {
-            textPresetSelect.selectedIndex = 0;
-            previewTextInput.value = textPresets[0].content;
+            applyTextPreset(0);
           } else {
             previewTextInput.value = '';
+            drawPreviewCanvas();
           }
-          drawPreviewCanvas();
           showToast('✅ 文案已删除');
         }
       });
 
+      // 导出文案库
       exportTextBtn.addEventListener('click', function() {
         const dataStr = JSON.stringify(textPresets, null, 2);
         const blob = new Blob([dataStr], { type: 'application/json' });
@@ -909,6 +1115,7 @@
         showToast('✅ 文案库已导出');
       });
 
+      // 导入文案库
       importTextBtn.addEventListener('click', function() {
         importFileInput.click();
       });
@@ -921,9 +1128,17 @@
           try {
             const importedData = JSON.parse(event.target.result);
             if (Array.isArray(importedData)) {
-              textPresets = textPresets.concat(importedData);
+              const cleanData = importedData.filter(function(p) {
+                return p && typeof p.name === 'string' && typeof p.content === 'string';
+              });
+              if (cleanData.length === 0) {
+                alert('导入的文案库为空，或数据格式不正确（需要 name / content 字段）');
+                return;
+              }
+              const firstNewIndex = textPresets.length;
+              textPresets = textPresets.concat(cleanData);
               saveTextPresetsToStorage();
-              renderTextPresets();
+              renderTextPresets(firstNewIndex);
               showToast('✅ 文案库导入成功');
             } else {
               alert('导入文件格式不正确，应为 JSON 数组');
@@ -1072,6 +1287,7 @@
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
         let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()}` : '';
         
+        // 检查商用授权，如果是“未知”则隐藏
         const commercialVal = commercialSelect.value;
         if (commercialVal !== '未知') {
           if (tagText) tagText += ' · ';
@@ -1127,6 +1343,7 @@
           if (item.text) {
             ctxMain.font = `${item.weight} ${item.size}px ${currentFontFamily}`;
             
+            // 处理阴影
             if (shadowSize > 0) {
               ctxMain.shadowColor = shadowColor;
               ctxMain.shadowBlur = 0;
@@ -1136,14 +1353,18 @@
               ctxMain.shadowColor = 'transparent';
             }
 
+            // 先画描边（如果有）
             if (strokeSize > 0) {
               ctxMain.strokeStyle = strokeColor;
               ctxMain.lineWidth = strokeSize * 2;
               ctxMain.strokeText(item.text, x, currentY);
             }
             
+            // 再画填充色
             ctxMain.fillStyle = textColor;
             ctxMain.fillText(item.text, x, currentY);
+            
+            // 重置阴影，防止污染底部标签
             ctxMain.shadowColor = 'transparent';
           }
           currentY += item.size * lineHeight;
@@ -1565,7 +1786,11 @@
           gradientGrid.appendChild(div);
         });
       }
-      renderGradientGrid();
+      try {
+        renderGradientGrid();
+      } catch (err) {
+        console.error('渐变背景初始化失败:', err);
+      }
 
       generateCustomGradientBtn.addEventListener('click', function() {
         const c1 = customColor1.value;
@@ -1635,7 +1860,12 @@
       });
 
       function loadSettings() {
-        const saved = localStorage.getItem('fontPreviewSettings');
+        let saved = null;
+        try {
+          saved = localStorage.getItem('fontPreviewSettings');
+        } catch (e) {
+          console.warn('读取本地设置失败', e);
+        }
         if (!saved) {
           drawPreviewCanvas();
           return;
@@ -1714,11 +1944,13 @@
               
               document.fonts.load(`16px "${uniqueFontFamily}"`).then(resolve).catch(resolve);
             } else if (settings.fontFamily) {
-              if (settings.fontFamily.includes('system-ui')) {
-                systemFontSelect.value = settings.fontFamily;
-                currentFontFamily = settings.fontFamily;
-                currentFontDisplayName = '系统默认';
-              }
+              currentFontFamily = settings.fontFamily;
+              const matchedOption = Array.from(systemFontSelect.options).find(function(option) {
+                return option.value === settings.fontFamily;
+              });
+              if (matchedOption) systemFontSelect.value = settings.fontFamily;
+              currentFontDisplayName = matchedOption ? matchedOption.text : (settings.fontDisplayName || '系统默认');
+              currentFontNameSpan.textContent = currentFontDisplayName;
               resolve();
             } else {
               resolve();
@@ -1769,6 +2001,8 @@
       if (!previewTextInput.value && textPresets.length > 0) {
         previewTextInput.value = textPresets[0].content;
       }
+      // 让下拉框显示与当前文字真正对应的文案
+      syncTextPresetUI(textPresets.findIndex(function(p) { return p.content === previewTextInput.value; }));
       drawPreviewCanvas();
 
       // 裁剪模态逻辑
