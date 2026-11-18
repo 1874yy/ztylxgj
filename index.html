@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>观月抱云の字体预览工具</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(145deg, #f4f7fc 0%, #e9eef5 100%);
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+      color: #1e293b;
+    }
+
+    .app {
+      background: rgba(255, 255, 255, 0.4);
+      backdrop-filter: blur(24px) saturate(150%);
+      -webkit-backdrop-filter: blur(24px) saturate(150%);
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 30px 60px -20px rgba(0, 0, 0, 0.1),
+                  inset 0 1px 2px rgba(255, 255, 255, 0.8);
+      width: 100%;
+      max-width: 1250px;
+      padding: 1.8rem 2rem 2rem;
+    }
+
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.8rem;
+    }
+
+    h1 {
+      font-size: 1.7rem;
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+    }
+
+    .social-links { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+
+    .social-btn {
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      padding: 0.4rem 1rem;
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #1e293b;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .social-btn:hover {
+      background: rgba(255, 255, 255, 0.8);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .control-group {
+      background: rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 1.5rem;
+      padding: 1rem 1rem 1.2rem;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 6px 16px -8px rgba(0, 0, 0, 0.05),
+                  inset 0 1px 2px rgba(255, 255, 255, 0.9);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .control-group h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin-bottom: 0.8rem;
+      font-weight: 500;
+    }
+
+    .field { margin-bottom: 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { font-size: 0.7rem; font-weight: 500; color: #475569; letter-spacing: 0.02em; }
+
+    .field input[type="text"],
+    .field input[type="file"],
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 0.5rem 0.8rem;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 1.5rem;
+      font-size: 0.85rem;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      transition: all 0.2s;
+      font-family: inherit;
+      color: #1e293b;
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.02);
+    }
+
+    .field textarea {
+      resize: vertical;
+      border-radius: 1rem;
+      min-height: 100px;
+    }
+
+    .field input[type="text"]:focus,
+    .field select:focus,
+    .field textarea:focus {
+      outline: none;
+      border-color: #a0b8d0;
+      background: rgba(255, 255, 255, 0.75);
+    }
+
+    .field input[type="file"] { padding: 0.3rem; font-size: 0.75rem; }
+    .field input[type="file"]::file-selector-button {
+      padding: 0.3rem 0.8rem;
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.5);
+      font-weight: 500;
+      color: #1e293b;
+      cursor: pointer;
+      margin-right: 0.6rem;
+      transition: background 0.2s;
+      font-size: 0.75rem;
+    }
+    .field input[type="file"]::file-selector-button:hover { background: rgba(255, 255, 255, 0.8); }
+
+    .range-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+    .range-wrapper input[type="range"] {
+      flex: 1; height: 3px; -webkit-appearance: none;
+      background: rgba(0, 0, 0, 0.1); border-radius: 10px;
+    }
+    .range-wrapper input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px;
+      background: white; border-radius: 50%; border: 2px solid #94a3b8;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); cursor: pointer;
+    }
+    .range-value {
+      min-width: 2.6rem; text-align: center; font-weight: 500; font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.6); padding: 0.15rem 0.3rem;
+      border-radius: 2rem; border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .color-row { display: flex; align-items: center; gap: 0.6rem; }
+    .color-row input[type="color"] {
+      width: 36px; height: 36px; border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 1rem; padding: 0.15rem; background: rgba(255, 255, 255, 0.4); cursor: pointer;
+    }
+    .color-hex {
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.7rem;
+      background: rgba(255, 255, 255, 0.6); padding: 0.2rem 0.6rem;
+      border-radius: 2rem; border: 1px solid rgba(255, 255, 255, 0.8);
+    }
+
+    .checkbox-row {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.75rem; color: #1e293b; cursor: pointer; user-select: none;
+    }
+    .checkbox-row input[type="checkbox"] { width: 1rem; height: 1rem; accent-color: #94a3b8; cursor: pointer; }
+
+    .font-status {
+      background: rgba(255, 255, 255, 0.45); padding: 0.4rem 0.8rem;
+      border-radius: 1.5rem; margin-top: 0.3rem; font-size: 0.7rem;
+      border: 1px solid rgba(255, 255, 255, 0.8); color: #334155;
+    }
+    .font-status span { font-weight: 500; color: #0f172a; }
+
+    .btn-small {
+      padding: 0.35rem 1rem; font-size: 0.75rem; width: auto;
+      background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 2rem; cursor: pointer; transition: all 0.2s;
+      color: #1e293b; font-weight: 500; margin-top: 0.3rem;
+    }
+    .btn-small:hover { background: rgba(255, 255, 255, 0.7); }
+
+    .align-group { display: flex; gap: 0.4rem; margin-top: 0.2rem; }
+    .align-btn {
+      flex: 1; padding: 0.4rem 0; text-align: center; font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 1rem; cursor: pointer; transition: all 0.2s;
+      color: #475569; font-weight: 500;
+    }
+    .align-btn:hover { background: rgba(255, 255, 255, 0.7); }
+    .align-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+    .collapse-trigger {
+      cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.2rem; padding: 0.2rem 0; user-select: none;
+    }
+    .collapse-trigger h3 { margin-bottom: 0; }
+    .collapse-icon { font-size: 0.7rem; transition: transform 0.3s; color: #64748b; }
+    .collapse-content { margin-top: 0.8rem; display: none; width: 100%; }
+    .collapse-content.open { display: block; }
+
+    .gradient-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; margin-top: 0.5rem; width: 100%; }
+    .gradient-item {
+      height: 40px; border-radius: 1rem; cursor: pointer;
+      border: 2px solid rgba(255, 255, 255, 0.8);
+      transition: transform 0.2s, border-color 0.2s;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      position: relative; overflow: hidden;
+    }
+    .gradient-item:hover { transform: scale(1.02); border-color: #94a3b8; }
+    .gradient-item.active { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); }
+
+    .custom-color-group { display: flex; gap: 0.3rem; align-items: center; margin-top: 0.5rem; width: 100%; justify-content: space-between; }
+    .custom-color-group input[type="color"] {
+      width: 26px; height: 26px; border: 2px solid rgba(255, 255, 255, 0.8);
+      border-radius: 0.6rem; padding: 0.1rem; background: rgba(255, 255, 255, 0.4); cursor: pointer; flex-shrink: 0;
+    }
+
+    .color-checkbox-group {
+      display: flex; flex-wrap: nowrap; justify-content: space-between; align-items: center;
+      margin-top: 0.8rem; font-size: 0.6rem; color: #475569; gap: 0.05rem; width: 100%; overflow: hidden;
+    }
+    .color-checkbox-group label { display: flex; align-items: center; gap: 0.1rem; cursor: pointer; white-space: nowrap; }
+    .color-checkbox-group input[type="checkbox"] { width: 0.7rem; height: 0.7rem; margin: 0; accent-color: #94a3b8; cursor: pointer; flex-shrink: 0; }
+
+    .generate-btn {
+      width: 100%; margin-top: 0.8rem; padding: 0.4rem 0; font-size: 0.75rem;
+      background: rgba(255, 255, 255, 0.4); border: 1px solid rgba(255, 255, 255, 0.8);
+      border-radius: 2rem; cursor: pointer; transition: all 0.2s; color: #1e293b; font-weight: 500;
+    }
+    .generate-btn:hover { background: rgba(255, 255, 255, 0.7); }
+
+    .preview-area { display: flex; flex-direction: column; gap: 1rem; align-items: center; }
+    .preview-container {
+      background: rgba(255, 255, 255, 0.2); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-radius: 2rem; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.7);
+      box-shadow: 0 15px 35px -12px rgba(0, 0, 0, 0.1), inset 0 1px 4px rgba(255, 255, 255, 0.8);
+      padding: 1.2rem; width: 100%; max-width: 550px;
+    }
+
+    .preview-canvas-wrap {
+      position: relative; width: 100%; aspect-ratio: 1 / 1; 
+      display: flex; align-items: center; justify-content: center;
+      background: #ffffff; border-radius: 1.5rem; overflow: hidden;
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.02);
+    }
+    
+    #mainPreviewCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+
+    .download-group {
+      display: flex; flex-direction: column; gap: 0.6rem; width: 100%; max-width: 550px;
+    }
+    .download-options {
+      display: flex; gap: 1rem; justify-content: center; align-items: center;
+      font-size: 0.8rem; color: #475569;
+    }
+    .download-options label { display: flex; align-items: center; gap: 0.3rem; cursor: pointer; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem;
+      padding: 0.85rem 2rem; border-radius: 3rem; font-weight: 500; font-size: 0.95rem;
+      border: 1px solid rgba(255, 255, 255, 0.8); cursor: pointer; transition: all 0.2s;
+      background: rgba(255, 255, 255, 0.5); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+      color: #1e293b; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04), inset 0 1px 2px rgba(255, 255, 255, 0.8);
+      letter-spacing: 0.02em; width: 100%;
+    }
+    .btn.btn-primary { background: #1e293b; color: white; border-color: #1e293b; }
+    .btn.btn-primary:hover { background: #0f172a; }
+    .btn:hover { background: rgba(255, 255, 255, 0.8); transform: translateY(-2px); box-shadow: 0 10px 25px -8px rgba(0, 0, 0, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.9); }
+
+    .btn.saving { background: #94a3b8 !important; color: white !important; cursor: wait; }
+    .btn.saved { background: #10b981 !important; color: white !important; border-color: #10b981 !important; }
+
+    .footnote { font-size: 0.7rem; color: #94a3b8; text-align: center; margin-top: 0.2rem; }
+
+    .save-settings-btn {
+      background: #3b82f6; color: white; border: none; padding: 0.4rem 1rem; border-radius: 2rem;
+      cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: background 0.2s;
+    }
+    .save-settings-btn:hover { background: #2563eb; }
+    .save-hint {
+      font-size: 0.65rem; color: #ef4444; margin-top: 0.2rem; display: none;
+    }
+    
+    .path-btn {
+      background: #10b981; color: white; border: none; padding: 0.4rem 1rem; border-radius: 2rem;
+      cursor: pointer; font-size: 0.8rem; font-weight: 500; transition: background 0.2s;
+      display: inline-flex; align-items: center; gap: 0.3rem;
+    }
+    .path-btn:hover { background: #059669; }
+    .path-status { font-size: 0.7rem; color: #64748b; margin-left: 0.5rem; }
+
+    /* Toast 提示 */
+    .toast {
+      position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
+      background: #10b981; color: white; padding: 0.75rem 2rem; border-radius: 2rem;
+      font-size: 0.9rem; font-weight: 500; box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+      opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 9999;
+      display: flex; align-items: center; gap: 0.5rem; pointer-events: none;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px);
+      display: none; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal-content {
+      background: #ffffff; border-radius: 2rem; padding: 1.5rem;
+      width: 90%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .modal-header h2 { font-size: 1.2rem; font-weight: 600; color: #1e293b; }
+    .modal-close {
+      background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #64748b;
+      padding: 0.2rem 0.5rem; border-radius: 0.5rem; transition: background 0.2s;
+    }
+    .modal-close:hover { background: rgba(0, 0, 0, 0.05); }
+
+    .cropper-wrapper {
+      position: relative; width: 100%; height: 500px; background: #1e293b;
+      border-radius: 1rem; overflow: hidden; display: flex; align-items: center; justify-content: center;
+      margin-bottom: 1rem;
+    }
+    .cropper-wrapper canvas { max-width: 100%; max-height: 100%; display: block; cursor: crosshair; }
+
+    .crop-controls { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+    .crop-controls label { font-size: 0.8rem; font-weight: 500; color: #475569; }
+    .crop-controls select, .crop-controls input { padding: 0.5rem 0.8rem; border: 1px solid #cbd5e1; border-radius: 2rem; font-size: 0.85rem; }
+
+    .modal-footer { display: flex; gap: 1rem; justify-content: flex-end; }
+    .modal-footer button {
+      padding: 0.7rem 1.5rem; border-radius: 2rem; font-weight: 500; cursor: pointer;
+      border: 1px solid #cbd5e1; background: #ffffff; color: #1e293b; transition: all 0.2s;
+    }
+    .modal-footer button.primary { background: #0f172a; color: #ffffff; border-color: #0f172a; }
+    .modal-footer button.primary:hover { background: #1e293b; }
+    .modal-footer button:hover { background: #f1f5f9; }
+
+    @media (max-width: 900px) {
+      .header { flex-direction: column; align-items: flex-start; }
+    }
+    @media (max-width: 600px) {
+      .app { padding: 1.2rem; }
+      .controls-grid { grid-template-columns: 1fr; }
+      .cropper-wrapper { height: 300px; }
+      .download-group { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 全局 Toast 提示 -->
+  <div class="toast" id="toast">✅ 图片已成功保存到文件夹</div>
+
+  <div class="app">
+    <div class="header">
+      <div style="display:flex; flex-direction:column; gap:0.5rem;">
+        <h1>观月抱云の字体预览工具</h1>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <button class="save-settings-btn" id="saveSettingsBtn">保存当前设置</button>
+          <span class="save-hint" id="saveHint">设置已保存（清理浏览器缓存会丢失）</span>
+          
+          <button class="path-btn" id="chooseSavePathBtn">设定下载文件夹</button>
+          <span class="path-status" id="pathStatus">未选择文件夹</span>
+        </div>
+      </div>
+      <div class="social-links">
+        <button class="social-btn" data-url="https://xhslink.cn/o/4vKg7Z4neNC" data-name="小红书">小红书</button>
+        <button class="social-btn" data-url="https://qun.qq.com/universal-share/share?ac=1&authKey=btae6E%2BeMJOtw78ee55%2BM9eMXE9OnvBw7YEXuIqbw4bYi63rCFBDBKdEJ%2B%2B6r1tZ&busi_data=eyJncm91cENvZGUiOiI4NzYwNTMwMzQiLCJ0b2tlbiI6IlJ0UGFnWDJORjhmalh4OG8xTS9EUjZnVzlkcTV0L3RzVmVwYjVrblFBOXkza01uTnFMVytONUtQSHZTc2JjN0MiLCJ1aW4iOiI0ODExNDQ5MSJ9&data=cJyEVKBAzokUS-90BsYpF8-EPBZcFWfA2RtKvHU4BKZ40pmRN2MYfmruS6ES2nXMvOPhVdo-1H0M-cHPA8r94g&svctype=4&tempid=h5_group_info" data-name="QQ群">QQ群</button>
+        <button class="social-btn" data-url="https://c0ks-10f3p663a3.maozi.io/" data-name="从0开始">从0开始</button>
+      </div>
+    </div>
+
+    <div class="main-content">
+      <div class="controls-grid">
+        <!-- 字体设置 -->
+        <div class="control-group">
+          <h3>字体设置</h3>
+          <div class="field">
+            <label>上传字体文件 (.ttf, .otf, .woff, .woff2)</label>
+            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2">
+          </div>
+          <div class="field">
+            <label>或选择系统字体</label>
+            <select id="systemFontSelect">
+              <option value="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">系统默认 (System UI)</option>
+              <option value="Arial, Helvetica, sans-serif">Arial / Helvetica</option>
+              <option value="'Times New Roman', Times, serif">Times New Roman</option>
+              <option value="Georgia, 'Times New Roman', serif">Georgia</option>
+              <option value="'Courier New', Courier, monospace">Courier New</option>
+              <option value="Verdana, Geneva, sans-serif">Verdana</option>
+              <option value="'Trebuchet MS', 'Lucida Grande', sans-serif">Trebuchet MS</option>
+              <option value="'Comic Sans MS', 'Chalkboard SE', cursive">Comic Sans MS</option>
+              <option value="Impact, 'Arial Black', sans-serif">Impact</option>
+              <option value="'Palatino', 'Palatino Linotype', 'Book Antiqua', serif">Palatino</option>
+              <option value="'Garamond', Garamond, 'Times New Roman', serif">Garamond</option>
+              <option value="'Futura', Avenir, Helvetica, sans-serif">Futura / Avenir</option>
+              <option value="'Brush Script MT', 'Comic Sans MS', cursive">Brush Script MT</option>
+              <option value="'Lucida Console', Monaco, monospace">Lucida Console</option>
+            </select>
+          </div>
+          <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
+        </div>
+
+        <!-- 样式调整 -->
+        <div class="control-group">
+          <h3>样式调整</h3>
+          <div class="field">
+            <label>字号</label>
+            <div class="range-wrapper">
+              <input type="range" id="fontSizeRange" min="10" max="100" value="18" step="1">
+              <span class="range-value" id="fontSizeValue">18px</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>文字颜色</label>
+            <div class="color-row">
+              <input type="color" id="textColorPicker" value="#1e293b">
+              <span class="color-hex" id="textColorHex">#1e293b</span>
+            </div>
+          </div>
+          <div class="field">
+            <label>文字对齐</label>
+            <div class="align-group">
+              <button class="align-btn" data-align="left">居左</button>
+              <button class="align-btn active" data-align="center">居中</button>
+              <button class="align-btn" data-align="right">居右</button>
+            </div>
+          </div>
+          <div class="checkbox-row" style="margin-top:0.3rem;">
+            <input type="checkbox" id="titleFirstLineCheckbox">
+            <label for="titleFirstLineCheckbox" style="font-weight:400; cursor:pointer;">首行作为标题（加粗加大）</label>
+          </div>
+        </div>
+
+        <!-- 自定义背景 -->
+        <div class="control-group">
+          <h3>自定义背景</h3>
+          <div class="field">
+            <label>上传背景图 (JPEG, PNG, GIF, WEBP)</label>
+            <input type="file" id="bgImageInput" name="bgImage" accept="image/*">
+          </div>
+          
+          <div class="field">
+            <label>底图来源 (显示在预览图底部)</label>
+            <input type="text" id="bgSourceInput" value="" placeholder="例：取自网络 / 个人原创…" maxlength="20">
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="useBgImageCheckbox" checked>
+            <label for="useBgImageCheckbox" style="font-weight:400; cursor:pointer;">使用背景图片</label>
+          </div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <button class="btn-small" id="clearBgImageBtn" style="flex:1;">移除背景图</button>
+            <button class="btn-small" id="openCropModalBtn" style="flex:1;">裁剪图片</button>
+          </div>
+        </div>
+
+        <!-- 自定义背景色 -->
+        <div class="control-group">
+          <div class="collapse-trigger" id="gradientCollapseTrigger">
+            <h3>自定义背景色</h3>
+            <span class="collapse-icon" id="gradientCollapseIcon">▼</span>
+          </div>
+          <div class="collapse-content" id="gradientCollapseContent">
+            <p style="font-size:0.7rem; color:#64748b; margin-bottom:0.5rem;">点击选择预设晕染背景（将覆盖背景图）</p>
+            <div class="gradient-grid" id="gradientGrid"></div>
+            
+            <div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px dashed rgba(0,0,0,0.1); width:100%;">
+              <p style="font-size:0.7rem; color:#64748b; margin-bottom:0.5rem;">自定义晕染色彩</p>
+              <div class="custom-color-group">
+                <input type="color" id="customColor1" value="#fde2e4" title="颜色 1">
+                <input type="color" id="customColor2" value="#c1dfe8" title="颜色 2">
+                <input type="color" id="customColor3" value="#e0f2fe" title="颜色 3">
+                <input type="color" id="customColor4" value="#fef3c7" title="颜色 4">
+                <input type="color" id="customColor5" value="#e9d5ff" title="颜色 5">
+              </div>
+              <div class="color-checkbox-group">
+                <label><input type="checkbox" id="useColor1" checked>颜色1</label>
+                <label><input type="checkbox" id="useColor2" checked>颜色2</label>
+                <label><input type="checkbox" id="useColor3" checked>颜色3</label>
+                <label><input type="checkbox" id="useColor4" checked>颜色4</label>
+                <label><input type="checkbox" id="useColor5" checked>颜色5</label>
+              </div>
+              <button class="generate-btn" id="generateCustomGradientBtn">生成新晕染</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 商用授权 -->
+        <div class="control-group">
+          <h3>商用授权</h3>
+          <div class="field">
+            <label>选择授权状态</label>
+            <select id="commercialSelect">
+              <option value="可免费商用">可免费商用</option>
+              <option value="需自行购入商用权">需自行购入商用权</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 预览文字 -->
+        <div class="control-group">
+          <h3>预览文字</h3>
+          <div class="field">
+            <textarea id="previewTextInput" rows="3" placeholder="输入要预览的文字…（可换行）"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 预览区 -->
+      <div class="preview-area">
+        <div class="preview-container">
+          <div class="preview-canvas-wrap" id="previewCanvasWrap">
+            <canvas id="mainPreviewCanvas"></canvas>
+          </div>
+        </div>
+        
+        <div class="download-group">
+          <div class="download-options">
+            <label>
+              <input type="radio" name="downloadQuality" value="original" checked> 原图下载 (高清)
+            </label>
+            <label>
+              <input type="radio" name="downloadQuality" value="compressed"> 压缩下载 (方便分享)
+            </label>
+          </div>
+          <div style="display: flex; gap: 1rem;">
+            <button class="btn" id="downloadSquareBtn">下载方角图片</button>
+            <button class="btn btn-primary" id="downloadRoundBtn">下载圆角图片</button>
+          </div>
+        </div>
+        <div class="footnote">* 预览和下载均为 100% 同步的纯 Canvas 渲染，设定一次文件夹即可无感下载。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 裁剪模态框 -->
+  <div class="modal-overlay" id="cropModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>裁剪背景图片</h2>
+        <button class="modal-close" id="closeCropModalBtn">&times;</button>
+      </div>
+      <div class="cropper-wrapper" id="cropperWrapper"></div>
+      <div class="crop-controls">
+        <label>比例：</label>
+        <select id="cropRatioSelect">
+          <option value="free">自由裁剪</option>
+          <option value="16:9">16:9 (宽屏)</option>
+          <option value="4:3">4:3 (标准)</option>
+          <option value="1:1">1:1 (方形)</option>
+          <option value="3:4">3:4 (竖版)</option>
+        </select>
+        <button class="btn-small" id="resetCropBtn" style="margin-top:0;">重置选区</button>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelCropBtn">取消</button>
+        <button class="primary" id="applyCropBtn">应用裁剪</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const fontFileInput = document.getElementById('fontFileInput');
+      const systemFontSelect = document.getElementById('systemFontSelect');
+      const currentFontNameSpan = document.getElementById('currentFontName');
+      const fontSizeRange = document.getElementById('fontSizeRange');
+      const fontSizeValue = document.getElementById('fontSizeValue');
+      const textColorPicker = document.getElementById('textColorPicker');
+      const textColorHex = document.getElementById('textColorHex');
+      const bgImageInput = document.getElementById('bgImageInput');
+      const bgSourceInput = document.getElementById('bgSourceInput');
+      const useBgImageCheckbox = document.getElementById('useBgImageCheckbox');
+      const clearBgImageBtn = document.getElementById('clearBgImageBtn');
+      const openCropModalBtn = document.getElementById('openCropModalBtn');
+      const previewTextInput = document.getElementById('previewTextInput');
+      
+      const previewCanvasWrap = document.getElementById('previewCanvasWrap');
+      const mainCanvas = document.getElementById('mainPreviewCanvas');
+      const ctxMain = mainCanvas.getContext('2d');
+
+      const commercialSelect = document.getElementById('commercialSelect');
+      const downloadSquareBtn = document.getElementById('downloadSquareBtn');
+      const downloadRoundBtn = document.getElementById('downloadRoundBtn');
+      const toastEl = document.getElementById('toast');
+
+      const alignBtns = document.querySelectorAll('.align-btn');
+      const titleFirstLineCheckbox = document.getElementById('titleFirstLineCheckbox');
+      
+      const gradientCollapseTrigger = document.getElementById('gradientCollapseTrigger');
+      const gradientCollapseContent = document.getElementById('gradientCollapseContent');
+      const gradientCollapseIcon = document.getElementById('gradientCollapseIcon');
+      const gradientGrid = document.getElementById('gradientGrid');
+      const customColor1 = document.getElementById('customColor1');
+      const customColor2 = document.getElementById('customColor2');
+      const customColor3 = document.getElementById('customColor3');
+      const customColor4 = document.getElementById('customColor4');
+      const customColor5 = document.getElementById('customColor5');
+      
+      const useColor1 = document.getElementById('useColor1');
+      const useColor2 = document.getElementById('useColor2');
+      const useColor3 = document.getElementById('useColor3');
+      const useColor4 = document.getElementById('useColor4');
+      const useColor5 = document.getElementById('useColor5');
+      
+      const generateCustomGradientBtn = document.getElementById('generateCustomGradientBtn');
+
+      const cropModal = document.getElementById('cropModal');
+      const cropperWrapper = document.getElementById('cropperWrapper');
+      const closeCropModalBtn = document.getElementById('closeCropModalBtn');
+      const cancelCropBtn = document.getElementById('cancelCropBtn');
+      const applyCropBtn = document.getElementById('applyCropBtn');
+      const cropRatioSelect = document.getElementById('cropRatioSelect');
+      const resetCropBtn = document.getElementById('resetCropBtn');
+      
+      const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+      const saveHint = document.getElementById('saveHint');
+      const chooseSavePathBtn = document.getElementById('chooseSavePathBtn');
+      const pathStatus = document.getElementById('pathStatus');
+
+      let currentFontFamily = '';
+      let currentFontDisplayName = '系统默认';
+      let uploadedFontUrl = null;
+      let uploadedFontBase64 = null;
+      let uploadedBgImageUrl = null;
+      let useBgImage = true;
+      let activeGradient = null;
+      let currentAlign = 'center';
+
+      let canvas, ctx;
+      let img = new Image();
+      let imgLoaded = false;
+      let cropRect = { x: 0, y: 0, w: 0, h: 0 };
+      let isDragging = false;
+      let dragStartX = 0, dragStartY = 0;
+      
+      let saveDirectoryHandle = null;
+
+      // 内部预渲染尺寸
+      const PREVIEW_SIZE = 1500; 
+      mainCanvas.width = PREVIEW_SIZE;
+      mainCanvas.height = PREVIEW_SIZE;
+      
+      const BASE_SIZE = 500; 
+
+      // 初始化值
+      previewTextInput.value = `欢迎来到女巫#逍遥の魔法商店\n\n"这间商店的屋子旧旧的好像很久都没有人来过了"\n  #地面上的物品摆放混乱\n「打翻的酒精灯、折断了的飞天扫帚、破烂不堪的巫帽、散落一地的塔罗牌、燃烧过的几截蜡烛」\n「破旧的门窗、空荡荡的货架、无人打理的后花园、一片狼藉的工作台、布满灰尘的魔法厨房」\n种种迹象都表明，这个地方已经荒废了很久……这里还有人来吗？\n各种乱七八糟的香料&草药混合的气味快要让人受不了\n  #门框上写了一行字：\n请不要随意打扰女巫的家，否则会有意想不到的事情发生。\n"看来这个地方不宜久留"\n我留下一串记号 4811449\n地址：夢境森林深处（具体位置未知）\n句号 。 逗号 ， 冒号 ： 顿号 、略号 … 括号 （）`;
+      
+      fontSizeValue.textContent = fontSizeRange.value + 'px';
+      textColorHex.textContent = textColorPicker.value;
+      currentFontFamily = systemFontSelect.value;
+
+      const gradientPresets = [
+        { name: '晨曦', colors: ['#fde2e4', '#c1dfe8', '#f8f0e3'], cx: '30%', cy: '40%' },
+        { name: '雾霭', colors: ['#e0e7ff', '#f3e8ff', '#fce7f3'], cx: '70%', cy: '20%' },
+        { name: '青柠', colors: ['#d1fae5', '#ecfccb', '#fef9c3'], cx: '20%', cy: '70%' },
+        { name: '暖沙', colors: ['#fed7aa', '#fecdd3', '#fef3c7'], cx: '60%', cy: '30%' },
+        { name: '淡紫', colors: ['#e9d5ff', '#fbcfe8', '#e0e7ff'], cx: '40%', cy: '60%' },
+        { name: '海盐', colors: ['#bae6fd', '#cffafe', '#e0f2fe'], cx: '80%', cy: '50%' },
+      ];
+
+      function getGradientCss(preset) {
+        return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
+      }
+
+      // 显示 Toast 提示
+      function showToast(message) {
+        toastEl.textContent = message;
+        toastEl.classList.add('show');
+        setTimeout(() => {
+          toastEl.classList.remove('show');
+        }, 2500);
+      }
+
+      // ======= 核心渲染函数 =======
+      async function drawPreviewCanvas() {
+        if (!ctxMain) return;
+        
+        try {
+          await document.fonts.load(`16px "${currentFontFamily.replace(/'/g, '')}"`);
+        } catch(e) {}
+        
+        const width = mainCanvas.width;
+        const height = mainCanvas.height;
+
+        // 1. 绘制背景
+        ctxMain.clearRect(0, 0, width, height);
+        ctxMain.fillStyle = '#f8fafc';
+        ctxMain.fillRect(0, 0, width, height);
+
+        if (useBgImage && uploadedBgImageUrl && imgLoaded) {
+          const imgRatio = img.width / img.height;
+          const canvasRatio = width / height;
+          let drawW, drawH, offsetX, offsetY;
+          if (imgRatio > canvasRatio) {
+            drawH = height;
+            drawW = img.width * (height / img.height);
+            offsetX = (width - drawW) / 2;
+            offsetY = 0;
+          } else {
+            drawW = width;
+            drawH = img.height * (width / img.width);
+            offsetX = 0;
+            offsetY = (height - drawH) / 2;
+          }
+          ctxMain.drawImage(img, offsetX, offsetY, drawW, drawH);
+        } else if (activeGradient) {
+          ctxMain.fillStyle = '#ffffff';
+          ctxMain.fillRect(0, 0, width, height);
+
+          if (activeGradient.type === 'preset') {
+            const preset = activeGradient.data;
+            const cx = (parseFloat(preset.cx) / 100) * width;
+            const cy = (parseFloat(preset.cy) / 100) * height;
+            
+            ctxMain.fillStyle = preset.colors[2];
+            ctxMain.fillRect(0, 0, width, height);
+            
+            const grd1 = ctxMain.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 1.2);
+            grd1.addColorStop(0, preset.colors[0]);
+            grd1.addColorStop(0.6, preset.colors[1]);
+            grd1.addColorStop(1, 'rgba(255,255,255,0)');
+            ctxMain.fillStyle = grd1;
+            ctxMain.fillRect(0, 0, width, height);
+          } else if (activeGradient.type === 'custom') {
+            ctxMain.fillStyle = activeGradient.fallbackColor;
+            ctxMain.fillRect(0, 0, width, height);
+            if (activeGradient.layers) {
+               activeGradient.layers.forEach(layer => {
+                 if (layer.color) {
+                   const cx = layer.x * width;
+                   const cy = layer.y * height;
+                   const grd = ctxMain.createRadialGradient(cx, cy, 0, cx, cy, Math.max(width, height) * 0.6);
+                   grd.addColorStop(0, layer.color);
+                   grd.addColorStop(1, 'rgba(255,255,255,0)');
+                   ctxMain.fillStyle = grd;
+                   ctxMain.fillRect(0, 0, width, height);
+                 }
+               });
+            }
+          }
+        }
+
+        // 2. 预计算文字排版高度
+        const rawText = previewTextInput.value;
+        const baseSize = parseInt(fontSizeRange.value) * (width / BASE_SIZE); 
+        const align = currentAlign;
+        const paddingX = 40 * (width / BASE_SIZE);
+        const lineHeight = 1.6;
+        const textMaxWidth = width - paddingX * 2;
+
+        const renderLines = [];
+        let textTotalHeight = 0;
+
+        const prepareText = (text, size, weight) => {
+          ctxMain.font = `${weight} ${size}px ${currentFontFamily}`;
+          const paragraphs = text.split('\n');
+          
+          for (let p = 0; p < paragraphs.length; p++) {
+            const paraText = paragraphs[p];
+            if (paraText === '') {
+              renderLines.push({ text: '', x: 0, y: 0, size, weight });
+              textTotalHeight += size * lineHeight;
+              continue;
+            }
+
+            const chars = paraText.split('');
+            let line = '';
+            
+            for (let n = 0; n < chars.length; n++) {
+              const testLine = line + chars[n];
+              const testWidth = ctxMain.measureText(testLine).width;
+              
+              if (testWidth > textMaxWidth && n > 0) {
+                renderLines.push({ text: line, size, weight });
+                textTotalHeight += size * lineHeight;
+                line = chars[n];
+              } else {
+                line = testLine;
+              }
+            }
+            if (line) {
+              renderLines.push({ text: line, size, weight });
+              textTotalHeight += size * lineHeight;
+            }
+          }
+        };
+
+        if (titleFirstLineCheckbox.checked) {
+          const lines = rawText.split('\n');
+          const title = lines[0] || '';
+          const content = lines.slice(1).join('\n');
+          const titleSize = baseSize * 1.25;
+          
+          prepareText(title, titleSize, '700');
+          if (content) {
+            renderLines.push({ text: '', size: baseSize * 0.3, weight: '400' });
+            textTotalHeight += baseSize * 0.3;
+            prepareText(content, baseSize, '400');
+          }
+        } else {
+          prepareText(rawText, baseSize, '400');
+        }
+
+        // 3. 计算垂直居中起点
+        const tagMarginBottom = 24 * (width / BASE_SIZE);
+        const tagFontSize = Math.round(14 * (width / BASE_SIZE));
+        ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
+        let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()} · ` : '';
+        tagText += `${commercialSelect.value} · 字体：${currentFontDisplayName}`;
+        const textMetrics = ctxMain.measureText(tagText);
+        const tagPaddingX = 24 * (width / BASE_SIZE);
+        const tagPaddingY = 8 * (width / BASE_SIZE);
+        const tagH = tagFontSize + tagPaddingY * 2;
+        const tagW = textMetrics.width + tagPaddingX * 2;
+        
+        const topOffset = 40 * (width / BASE_SIZE);
+        const bottomOffset = tagH + tagMarginBottom + 20 * (width / BASE_SIZE);
+        const availableHeight = height - topOffset - bottomOffset;
+
+        let startY = topOffset;
+        if (textTotalHeight < availableHeight) {
+          startY = topOffset + (availableHeight - textTotalHeight) / 2;
+        }
+
+        // 4. 绘制文字
+        const textColor = textColorPicker.value;
+        ctxMain.fillStyle = textColor;
+        ctxMain.textBaseline = 'top';
+        
+        let currentY = startY;
+        let x = paddingX;
+        if (align === 'center') {
+          x = width / 2;
+          ctxMain.textAlign = 'center';
+        } else if (align === 'right') {
+          x = width - paddingX;
+          ctxMain.textAlign = 'right';
+        } else {
+          x = paddingX;
+          ctxMain.textAlign = 'left';
+        }
+
+        renderLines.forEach(item => {
+          if (item.text) {
+            ctxMain.font = `${item.weight} ${item.size}px ${currentFontFamily}`;
+            ctxMain.fillText(item.text, x, currentY);
+          }
+          currentY += item.size * lineHeight;
+        });
+
+        // 5. 绘制底部标签
+        const tagX = (width - tagW) / 2;
+        const tagY = height - tagH - tagMarginBottom;
+
+        ctxMain.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctxMain.beginPath();
+        if (ctxMain.roundRect) {
+          ctxMain.roundRect(tagX, tagY, tagW, tagH, tagH / 2);
+        } else {
+          ctxMain.moveTo(tagX + tagH/2, tagY);
+          ctxMain.lineTo(tagX + tagW - tagH/2, tagY);
+          ctxMain.quadraticCurveTo(tagX + tagW, tagY, tagX + tagW, tagY + tagH/2);
+          ctxMain.lineTo(tagX + tagW, tagY + tagH - tagH/2);
+          ctxMain.quadraticCurveTo(tagX + tagW, tagY + tagH, tagX + tagW - tagH/2, tagY + tagH);
+          ctxMain.lineTo(tagX + tagH/2, tagY + tagH);
+          ctxMain.quadraticCurveTo(tagX, tagY + tagH, tagX, tagY + tagH - tagH/2);
+          ctxMain.lineTo(tagX, tagY + tagH/2);
+          ctxMain.quadraticCurveTo(tagX, tagY, tagX + tagH/2, tagY);
+        }
+        ctxMain.fill();
+        
+        ctxMain.fillStyle = '#1e293b';
+        ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
+        ctxMain.textAlign = 'center';
+        ctxMain.textBaseline = 'middle';
+        ctxMain.fillText(tagText, width / 2, tagY + tagH / 2);
+
+        if (useBgImage && imgLoaded && img.width && img.height) {
+          previewCanvasWrap.style.aspectRatio = `${img.width} / ${img.height}`;
+        } else {
+          previewCanvasWrap.style.aspectRatio = '1 / 1';
+        }
+      }
+
+      // ======= 保存逻辑 =======
+      async function downloadImage(isRound, btnElement) {
+        // 按钮状态反馈
+        const originalText = btnElement.textContent;
+        btnElement.textContent = '保存中...';
+        btnElement.classList.add('saving');
+        btnElement.classList.remove('saved');
+
+        try {
+          // 如果没有选择过路径，弹窗选择
+          if (!saveDirectoryHandle) {
+            if (!window.showDirectoryPicker) {
+              alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
+              return fallbackDownload(isRound, btnElement, originalText);
+            }
+            try {
+              saveDirectoryHandle = await window.showDirectoryPicker();
+              const permission = await saveDirectoryHandle.requestPermission({ mode: 'readwrite' });
+              if (permission === 'granted') {
+                pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
+                pathStatus.style.color = '#10b981';
+              } else {
+                btnElement.textContent = originalText;
+                btnElement.classList.remove('saving');
+                return;
+              }
+            } catch (err) {
+              if (err.name === 'AbortError') {
+                btnElement.textContent = originalText;
+                btnElement.classList.remove('saving');
+                return;
+              }
+              throw err;
+            }
+          }
+
+          // 生成图片
+          const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
+          let exportWidth = quality === 'original' ? 2400 : 1200;
+          
+          const exportCanvas = document.createElement('canvas');
+          exportCanvas.width = exportWidth;
+          exportCanvas.height = exportWidth * (mainCanvas.height / mainCanvas.width);
+          const eCtx = exportCanvas.getContext('2d');
+          eCtx.drawImage(mainCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+
+          let finalCanvas = exportCanvas;
+          if (isRound) {
+            const roundCanvas = document.createElement('canvas');
+            roundCanvas.width = exportCanvas.width;
+            roundCanvas.height = exportCanvas.height;
+            const rCtx = roundCanvas.getContext('2d');
+            const radius = Math.min(roundCanvas.width, roundCanvas.height) * 0.06;
+
+            rCtx.beginPath();
+            if (rCtx.roundRect) {
+              rCtx.roundRect(0, 0, roundCanvas.width, roundCanvas.height, radius);
+            } else {
+              rCtx.moveTo(radius, 0);
+              rCtx.lineTo(roundCanvas.width - radius, 0);
+              rCtx.quadraticCurveTo(roundCanvas.width, 0, roundCanvas.width, radius);
+              rCtx.lineTo(roundCanvas.width, roundCanvas.height - radius);
+              rCtx.quadraticCurveTo(roundCanvas.width, roundCanvas.height, roundCanvas.width - radius, roundCanvas.height);
+              rCtx.lineTo(radius, roundCanvas.height);
+              rCtx.quadraticCurveTo(0, roundCanvas.height, 0, roundCanvas.height - radius);
+              rCtx.lineTo(0, radius);
+              rCtx.quadraticCurveTo(0, 0, radius, 0);
+            }
+            rCtx.clip();
+            rCtx.drawImage(exportCanvas, 0, 0);
+            finalCanvas = roundCanvas;
+          }
+
+          const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+          const safeName = currentFontDisplayName.replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
+          const suffix = isRound ? '圆角' : '方角';
+          const fileName = `字体预览_${safeName}_${suffix}.png`;
+
+          try {
+            const permission = await saveDirectoryHandle.requestPermission({ mode: 'readwrite' });
+            if (permission === 'granted') {
+              const fileHandle = await saveDirectoryHandle.getFileHandle(fileName, { create: true });
+              const writable = await fileHandle.createWritable();
+              await writable.write(blob);
+              await writable.close();
+              
+              // 成功反馈
+              btnElement.textContent = '保存成功！';
+              btnElement.classList.remove('saving');
+              btnElement.classList.add('saved');
+              showToast('✅ 图片已成功保存到指定文件夹');
+              setTimeout(() => {
+                btnElement.textContent = originalText;
+                btnElement.classList.remove('saved');
+              }, 1500);
+              return;
+            }
+          } catch (err) {
+            console.error('写入失败:', err);
+            alert('保存失败，请重新设定下载文件夹。');
+            saveDirectoryHandle = null;
+            pathStatus.textContent = '未选择文件夹';
+            btnElement.textContent = originalText;
+            btnElement.classList.remove('saving');
+          }
+        } catch (error) {
+          console.error(error);
+          btnElement.textContent = originalText;
+          btnElement.classList.remove('saving');
+          alert('发生未知错误，请重试');
+        }
+      }
+
+      function fallbackDownload(isRound, btnElement, originalText) {
+        const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
+        let exportWidth = quality === 'original' ? 2400 : 1200;
+        
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = exportWidth;
+        exportCanvas.height = exportWidth * (mainCanvas.height / mainCanvas.width);
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.drawImage(mainCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+
+        let finalCanvas = exportCanvas;
+        if (isRound) {
+          const roundCanvas = document.createElement('canvas');
+          roundCanvas.width = exportCanvas.width;
+          roundCanvas.height = exportCanvas.height;
+          const rCtx = roundCanvas.getContext('2d');
+          const radius = Math.min(roundCanvas.width, roundCanvas.height) * 0.06;
+          rCtx.beginPath();
+          rCtx.roundRect(0, 0, roundCanvas.width, roundCanvas.height, radius);
+          rCtx.clip();
+          rCtx.drawImage(exportCanvas, 0, 0);
+          finalCanvas = roundCanvas;
+        }
+
+        const safeName = currentFontDisplayName.replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
+        const suffix = isRound ? '圆角' : '方角';
+        const fileName = `字体预览_${safeName}_${suffix}.png`;
+        
+        const url = URL.createObjectURL(finalCanvas.toDataURL('image/png'));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        btnElement.textContent = '下载完成！';
+        btnElement.classList.remove('saving');
+        btnElement.classList.add('saved');
+        showToast('✅ 图片已触发浏览器下载');
+        setTimeout(() => {
+          btnElement.textContent = originalText;
+          btnElement.classList.remove('saved');
+        }, 1500);
+      }
+
+      // ======= 事件绑定 =======
+      chooseSavePathBtn.addEventListener('click', async () => {
+        if (!window.showDirectoryPicker) {
+          alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
+          return;
+        }
+        try {
+          saveDirectoryHandle = await window.showDirectoryPicker();
+          const permission = await saveDirectoryHandle.requestPermission({ mode: 'readwrite' });
+          if (permission === 'granted') {
+            pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
+            pathStatus.style.color = '#10b981';
+            showToast('✅ 文件夹设置成功');
+          }
+        } catch (err) {
+          if (err.name !== 'AbortError') console.error('选择目录失败:', err);
+        }
+      });
+
+      downloadSquareBtn.addEventListener('click', function() {
+        downloadImage(false, this);
+      });
+      downloadRoundBtn.addEventListener('click', function() {
+        downloadImage(true, this);
+      });
+
+      fontFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['ttf', 'otf', 'woff', 'woff2'].includes(ext)) {
+          alert('请上传有效的字体文件');
+          fontFileInput.value = '';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          uploadedFontBase64 = event.target.result;
+          if (uploadedFontUrl) URL.revokeObjectURL(uploadedFontUrl);
+          uploadedFontUrl = URL.createObjectURL(file);
+          
+          const fontName = file.name.replace(/\.[^/.]+$/, '');
+          const uniqueFontFamily = `CustomFont_${Date.now()}`;
+
+          const style = document.createElement('style');
+          style.id = 'dynamic-font-style';
+          const oldStyle = document.getElementById('dynamic-font-style');
+          if (oldStyle) oldStyle.remove();
+
+          style.textContent = `
+            @font-face {
+              font-family: '${uniqueFontFamily}';
+              src: url('${uploadedFontUrl}') format('${ext === 'ttf' ? 'truetype' : ext === 'otf' ? 'opentype' : ext === 'woff' ? 'woff' : 'woff2'}');
+            }
+          `;
+          document.head.appendChild(style);
+          
+          currentFontFamily = `'${uniqueFontFamily}', 'Arial', sans-serif`;
+          currentFontDisplayName = fontName;
+          currentFontNameSpan.textContent = fontName;
+          
+          document.fonts.load(`16px "${uniqueFontFamily}"`).then(() => {
+            drawPreviewCanvas();
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+
+      systemFontSelect.addEventListener('change', function() {
+        currentFontFamily = this.value;
+        currentFontDisplayName = this.options[this.selectedIndex].text;
+        currentFontNameSpan.textContent = currentFontDisplayName;
+        drawPreviewCanvas();
+      });
+
+      previewTextInput.addEventListener('input', drawPreviewCanvas);
+      fontSizeRange.addEventListener('input', function() {
+        fontSizeValue.textContent = this.value + 'px';
+        drawPreviewCanvas();
+      });
+      textColorPicker.addEventListener('input', function() {
+        textColorHex.textContent = this.value;
+        drawPreviewCanvas();
+      });
+      titleFirstLineCheckbox.addEventListener('change', drawPreviewCanvas);
+      
+      alignBtns.forEach(btn => {
+        btn.addEventListener('click', function() {
+          alignBtns.forEach(b => b.classList.remove('active'));
+          this.classList.add('active');
+          currentAlign = this.dataset.align;
+          drawPreviewCanvas();
+        });
+      });
+
+      commercialSelect.addEventListener('change', drawPreviewCanvas);
+      bgSourceInput.addEventListener('input', drawPreviewCanvas);
+      useBgImageCheckbox.addEventListener('change', function() {
+        useBgImage = this.checked;
+        drawPreviewCanvas();
+      });
+
+      clearBgImageBtn.addEventListener('click', function() {
+        uploadedBgImageUrl = null;
+        bgImageInput.value = '';
+        imgLoaded = false;
+        useBgImageCheckbox.checked = false;
+        useBgImage = false;
+        activeGradient = null;
+        document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
+        drawPreviewCanvas();
+      });
+
+      bgImageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          uploadedBgImageUrl = event.target.result;
+          img = new Image();
+          img.onload = function() {
+            imgLoaded = true;
+            cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+            useBgImageCheckbox.checked = true;
+            useBgImage = true;
+            activeGradient = null;
+            document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
+            drawPreviewCanvas();
+          };
+          img.src = uploadedBgImageUrl;
+        };
+        reader.readAsDataURL(file);
+      });
+
+      gradientCollapseTrigger.addEventListener('click', function() {
+        const isOpen = gradientCollapseContent.classList.contains('open');
+        if (isOpen) {
+          gradientCollapseContent.classList.remove('open');
+          gradientCollapseIcon.style.transform = 'rotate(0deg)';
+        } else {
+          gradientCollapseContent.classList.add('open');
+          gradientCollapseIcon.style.transform = 'rotate(180deg)';
+        }
+      });
+
+      function renderGradientGrid() {
+        gradientGrid.innerHTML = '';
+        gradientPresets.forEach(preset => {
+          const div = document.createElement('div');
+          div.className = 'gradient-item';
+          div.style.background = getGradientCss(preset);
+          div.title = preset.name;
+          
+          if (activeGradient && activeGradient.type === 'preset' && activeGradient.data.name === preset.name) {
+            div.classList.add('active');
+          }
+          
+          div.addEventListener('click', function() {
+            document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
+            this.classList.add('active');
+            activeGradient = { type: 'preset', data: preset };
+            useBgImageCheckbox.checked = false;
+            useBgImage = false;
+            drawPreviewCanvas();
+          });
+          gradientGrid.appendChild(div);
+        });
+      }
+      renderGradientGrid();
+
+      generateCustomGradientBtn.addEventListener('click', function() {
+        const c1 = customColor1.value;
+        const c2 = customColor2.value;
+        const c3 = customColor3.value;
+        const c4 = customColor4.value;
+        const c5 = customColor5.value;
+
+        const enable1 = useColor1.checked;
+        const enable2 = useColor2.checked;
+        const enable3 = useColor3.checked;
+        const enable4 = useColor4.checked;
+        const enable5 = useColor5.checked;
+
+        if (!enable1 && !enable2 && !enable3 && !enable4 && !enable5) {
+          alert('请至少勾选一种颜色！');
+          return;
+        }
+
+        let layers = [];
+        let fallbackColor = '#ffffff';
+        if (enable1) { layers.push({ color: c1, x: 0.2, y: 0.3 }); fallbackColor = c1; }
+        if (enable2) { layers.push({ color: c2, x: 0.8, y: 0.7 }); if(fallbackColor==='#ffffff') fallbackColor = c2; }
+        if (enable3) { layers.push({ color: c3, x: 0.5, y: 0.2 }); if(fallbackColor==='#ffffff') fallbackColor = c3; }
+        if (enable4) { layers.push({ color: c4, x: 0.1, y: 0.8 }); if(fallbackColor==='#ffffff') fallbackColor = c4; }
+        if (enable5) { layers.push({ color: c5, x: 0.9, y: 0.3 }); if(fallbackColor==='#ffffff') fallbackColor = c5; }
+
+        activeGradient = { type: 'custom', layers: layers, fallbackColor: fallbackColor };
+        useBgImageCheckbox.checked = false;
+        useBgImage = false;
+        document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
+        drawPreviewCanvas();
+      });
+
+      // ======= 设置保存与读取 =======
+      saveSettingsBtn.addEventListener('click', function() {
+        const settings = {
+          previewText: previewTextInput.value,
+          fontSize: fontSizeRange.value,
+          textColor: textColorPicker.value,
+          fontFamily: currentFontFamily,
+          fontDisplayName: currentFontDisplayName,
+          uploadedFontBase64: uploadedFontBase64,
+          commercial: commercialSelect.value,
+          bgSource: bgSourceInput.value,
+          useBgImage: useBgImage,
+          uploadedBgImageUrl: uploadedBgImageUrl,
+          activeGradient: activeGradient,
+          align: currentAlign,
+          titleFirstLine: titleFirstLineCheckbox.checked,
+          customColors: [customColor1.value, customColor2.value, customColor3.value, customColor4.value, customColor5.value],
+          useColors: [useColor1.checked, useColor2.checked, useColor3.checked, useColor4.checked, useColor5.checked]
+        };
+        
+        try {
+          localStorage.setItem('fontPreviewSettings', JSON.stringify(settings));
+          saveHint.style.display = 'inline';
+          setTimeout(() => saveHint.style.display = 'none', 3000);
+          showToast('✅ 设置已保存');
+        } catch (e) {
+          alert('保存失败，可能是本地存储空间不足。');
+        }
+      });
+
+      function loadSettings() {
+        const saved = localStorage.getItem('fontPreviewSettings');
+        if (!saved) {
+          drawPreviewCanvas();
+          return;
+        }
+        try {
+          const settings = JSON.parse(saved);
+          
+          if (settings.previewText) previewTextInput.value = settings.previewText;
+          if (settings.fontSize) {
+            fontSizeRange.value = settings.fontSize;
+            fontSizeValue.textContent = settings.fontSize + 'px';
+          }
+          if (settings.textColor) {
+            textColorPicker.value = settings.textColor;
+            textColorHex.textContent = settings.textColor;
+          }
+          if (settings.commercial) commercialSelect.value = settings.commercial;
+          if (settings.bgSource) bgSourceInput.value = settings.bgSource;
+          
+          if (settings.customColors) {
+            customColor1.value = settings.customColors[0];
+            customColor2.value = settings.customColors[1];
+            customColor3.value = settings.customColors[2];
+            customColor4.value = settings.customColors[3];
+            customColor5.value = settings.customColors[4];
+          }
+          if (settings.useColors) {
+            useColor1.checked = settings.useColors[0];
+            useColor2.checked = settings.useColors[1];
+            useColor3.checked = settings.useColors[2];
+            useColor4.checked = settings.useColors[3];
+            useColor5.checked = settings.useColors[4];
+          }
+
+          if (settings.align) {
+            currentAlign = settings.align;
+            alignBtns.forEach(b => {
+              b.classList.toggle('active', b.dataset.align === currentAlign);
+            });
+          }
+          if (settings.titleFirstLine !== undefined) {
+            titleFirstLineCheckbox.checked = settings.titleFirstLine;
+          }
+
+          const fontPromise = new Promise((resolve) => {
+            if (settings.uploadedFontBase64) {
+              uploadedFontBase64 = settings.uploadedFontBase64;
+              const uniqueFontFamily = `CustomFont_${Date.now()}`;
+              const style = document.createElement('style');
+              style.id = 'dynamic-font-style';
+              style.textContent = `
+                @font-face {
+                  font-family: '${uniqueFontFamily}';
+                  src: url('${uploadedFontBase64}');
+                }
+              `;
+              document.head.appendChild(style);
+              currentFontFamily = `'${uniqueFontFamily}', 'Arial', sans-serif`;
+              currentFontDisplayName = settings.fontDisplayName || '自定义字体';
+              currentFontNameSpan.textContent = currentFontDisplayName;
+              
+              document.fonts.load(`16px "${uniqueFontFamily}"`).then(resolve).catch(resolve);
+            } else if (settings.fontFamily) {
+              if (settings.fontFamily.includes('system-ui')) {
+                systemFontSelect.value = settings.fontFamily;
+                currentFontFamily = settings.fontFamily;
+                currentFontDisplayName = '系统默认';
+              }
+              resolve();
+            } else {
+              resolve();
+            }
+          });
+
+          const bgPromise = new Promise((resolve) => {
+            if (settings.uploadedBgImageUrl) {
+              uploadedBgImageUrl = settings.uploadedBgImageUrl;
+              img = new Image();
+              img.onload = function() {
+                imgLoaded = true;
+                cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+                useBgImage = settings.useBgImage;
+                useBgImageCheckbox.checked = useBgImage;
+                
+                if (settings.activeGradient) {
+                  activeGradient = settings.activeGradient;
+                  renderGradientGrid();
+                }
+                resolve();
+              };
+              img.src = uploadedBgImageUrl;
+            } else {
+              if (settings.activeGradient) {
+                activeGradient = settings.activeGradient;
+                useBgImage = false;
+                useBgImageCheckbox.checked = false;
+                renderGradientGrid();
+              }
+              resolve();
+            }
+          });
+
+          Promise.all([fontPromise, bgPromise]).then(() => {
+            drawPreviewCanvas();
+          });
+          
+        } catch (e) {
+          console.error('读取设置失败:', e);
+          drawPreviewCanvas();
+        }
+      }
+
+      loadSettings();
+
+      // 裁剪功能
+      openCropModalBtn.addEventListener('click', function() {
+        if (!uploadedBgImageUrl) return alert('请先上传背景图片');
+        if (!imgLoaded) return alert('图片正在加载，请稍后再试');
+        openCropModal();
+      });
+
+      function openCropModal() {
+        cropModal.classList.add('active');
+        cropperWrapper.innerHTML = '';
+        canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx = canvas.getContext('2d');
+        
+        cropRatioSelect.value = 'free';
+        cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+        
+        canvas.style.maxWidth = '100%';
+        canvas.style.maxHeight = '100%';
+        canvas.style.objectFit = 'contain';
+        cropperWrapper.appendChild(canvas);
+        
+        drawCanvas();
+        
+        canvas.addEventListener('mousedown', onMouseDown);
+        canvas.addEventListener('mousemove', onMouseMove);
+        canvas.addEventListener('mouseup', onMouseUp);
+        canvas.addEventListener('mouseleave', onMouseUp);
+      }
+
+      function drawCanvas() {
+        if (!ctx || !imgLoaded) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, cropRect.y);
+        ctx.fillRect(0, cropRect.y + cropRect.h, canvas.width, canvas.height - (cropRect.y + cropRect.h));
+        ctx.fillRect(0, cropRect.y, cropRect.x, cropRect.h);
+        ctx.fillRect(cropRect.x + cropRect.w, cropRect.y, canvas.width - (cropRect.x + cropRect.w), cropRect.h);
+        
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
+        
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(cropRect.x + cropRect.w / 3, cropRect.y);
+        ctx.lineTo(cropRect.x + cropRect.w / 3, cropRect.y + cropRect.h);
+        ctx.moveTo(cropRect.x + cropRect.w * 2 / 3, cropRect.y);
+        ctx.lineTo(cropRect.x + cropRect.w * 2 / 3, cropRect.y + cropRect.h);
+        ctx.moveTo(cropRect.x, cropRect.y + cropRect.h / 3);
+        ctx.lineTo(cropRect.x + cropRect.w, cropRect.y + cropRect.h / 3);
+        ctx.moveTo(cropRect.x, cropRect.y + cropRect.h * 2 / 3);
+        ctx.lineTo(cropRect.x + cropRect.w, cropRect.y + cropRect.h * 2 / 3);
+        ctx.stroke();
+      }
+
+      function getCanvasCoords(e) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: (e.clientX - rect.left) * (canvas.width / rect.width),
+          y: (e.clientY - rect.top) * (canvas.height / rect.height)
+        };
+      }
+
+      function onMouseDown(e) {
+        e.preventDefault();
+        const { x, y } = getCanvasCoords(e);
+        if (x >= cropRect.x && x <= cropRect.x + cropRect.w && y >= cropRect.y && y <= cropRect.y + cropRect.h) {
+          isDragging = true;
+          dragStartX = x - cropRect.x;
+          dragStartY = y - cropRect.y;
+        }
+      }
+
+      function onMouseMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        const { x, y } = getCanvasCoords(e);
+        let newX = x - dragStartX;
+        let newY = y - dragStartY;
+        cropRect.x = Math.max(0, Math.min(newX, img.width - cropRect.w));
+        cropRect.y = Math.max(0, Math.min(newY, img.height - cropRect.h));
+        drawCanvas();
+      }
+
+      function onMouseUp() { isDragging = false; }
+
+      cropRatioSelect.addEventListener('change', function() {
+        const ratioStr = this.value;
+        if (ratioStr === 'free') return;
+        
+        let ratio = ratioStr === '16:9' ? 16/9 : ratioStr === '4:3' ? 4/3 : ratioStr === '1:1' ? 1 : 3/4;
+        
+        const centerX = cropRect.x + cropRect.w / 2;
+        const centerY = cropRect.y + cropRect.h / 2;
+        
+        let newW, newH;
+        if (cropRect.w / cropRect.h > ratio) {
+          newH = cropRect.h;
+          newW = newH * ratio;
+        } else {
+          newW = cropRect.w;
+          newH = newW / ratio;
+        }
+        
+        if (newW > img.width) { newW = img.width; newH = newW / ratio; }
+        if (newH > img.height) { newH = img.height; newW = newH * ratio; }
+        
+        let newX = centerX - newW / 2;
+        let newY = centerY - newH / 2;
+        newX = Math.max(0, Math.min(newX, img.width - newW));
+        newY = Math.max(0, Math.min(newY, img.height - newH));
+        
+        cropRect = { x: newX, y: newY, w: newW, h: newH };
+        drawCanvas();
+      });
+
+      resetCropBtn.addEventListener('click', function() {
+        cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+        cropRatioSelect.value = 'free';
+        drawCanvas();
+      });
+
+      applyCropBtn.addEventListener('click', function() {
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = cropRect.w;
+        cropCanvas.height = cropRect.h;
+        const cropCtx = cropCanvas.getContext('2d');
+        cropCtx.drawImage(img, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+        
+        uploadedBgImageUrl = cropCanvas.toDataURL('image/png');
+        
+        useBgImageCheckbox.checked = true;
+        useBgImage = true;
+        activeGradient = null;
+        document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
+        
+        img = new Image();
+        img.onload = function() {
+          imgLoaded = true;
+          cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+          drawPreviewCanvas();
+        };
+        img.src = uploadedBgImageUrl;
+        
+        cropModal.classList.remove('active');
+      });
+
+      closeCropModalBtn.addEventListener('click', () => cropModal.classList.remove('active'));
+      cancelCropBtn.addEventListener('click', () => cropModal.classList.remove('active'));
+      cropModal.addEventListener('click', (e) => { if (e.target === cropModal) cropModal.classList.remove('active'); });
+
+      // 社交链接
+      document.querySelectorAll('.social-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          const url = this.dataset.url;
+          if (url) window.open(url, '_blank');
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
