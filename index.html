@@ -1134,6 +1134,37 @@
     .custom-gradient-box .generate-btn { grid-column: 1 / -1; margin-top: 0.15rem; }
 
 
+
+    /* 文案生成器 */
+    .generator-trigger { margin-top: 0.9rem; }
+    .generator-content {
+      padding: 0.9rem;
+      border: 1px solid #eef2f7;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+    .generator-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.6fr);
+      gap: 0.7rem;
+    }
+    .generator-grid .field { margin-bottom: 0; }
+    .generator-actions { display: flex; gap: 0.5rem; margin-top: 0.7rem; flex-wrap: wrap; }
+    .generator-actions .btn-small { margin-top: 0; }
+    .generator-actions .generator-primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #fff;
+    }
+    .generator-actions .generator-primary:hover { background: #1e293b; border-color: #1e293b; }
+    .generator-actions .btn-small:disabled { opacity: 0.45; cursor: not-allowed; }
+    .generator-content .mini-note { margin: 0.65rem 0 0; }
+    .generator-content .mini-note a { color: #475569; text-decoration: underline; text-underline-offset: 2px; }
+    @media (max-width: 760px) {
+      .generator-grid { grid-template-columns: 1fr; }
+      .generator-actions .btn-small { flex: 1; }
+    }
+
     /* 字体授权检测 */
     .license-check {
       margin-top: 0.9rem;
@@ -1471,6 +1502,27 @@
               </div>
             </div>
           </div>
+          <button type="button" class="collapse-trigger generator-trigger" id="generatorCollapseTrigger" aria-expanded="true">
+            <span class="collapse-title">文案生成器</span>
+            <span class="collapse-icon" id="generatorCollapseIcon" style="transform: rotate(180deg)">▾</span>
+          </button>
+          <div class="collapse-content generator-content open" id="generatorCollapseContent">
+            <div class="generator-grid">
+              <div class="field">
+                <label for="generatorTitle">中文标题</label>
+                <input type="text" id="generatorTitle" placeholder="例：战争与和平" maxlength="40">
+              </div>
+              <div class="field">
+                <label for="generatorSentence">中文句子</label>
+                <input type="text" id="generatorSentence" placeholder="例：每个人都是为他自已而活。" maxlength="160">
+              </div>
+            </div>
+            <div class="generator-actions">
+              <button type="button" class="btn-small generator-primary" id="generateCopyBtn">生成文案</button>
+              <button type="button" class="btn-small" id="copyGeneratedBtn" disabled>复制文案</button>
+            </div>
+            <p class="mini-note">固定模板 + <a href="https://mymemory.translated.net/" target="_blank" rel="noopener">MyMemory</a> 免费翻译；文本会发送到翻译服务。生成后可编辑或保存到文案库。</p>
+          </div>
           <p class="preset-source" id="presetSourceHint">预设文案加载中…</p>
         </section>
       </aside>
@@ -1605,6 +1657,13 @@
       const exportTextBtn = document.getElementById('exportTextBtn');
       const importTextBtn = document.getElementById('importTextBtn');
       const importFileInput = document.getElementById('importFileInput');
+      const generatorCollapseTrigger = document.getElementById('generatorCollapseTrigger');
+      const generatorCollapseContent = document.getElementById('generatorCollapseContent');
+      const generatorCollapseIcon = document.getElementById('generatorCollapseIcon');
+      const generatorTitle = document.getElementById('generatorTitle');
+      const generatorSentence = document.getElementById('generatorSentence');
+      const generateCopyBtn = document.getElementById('generateCopyBtn');
+      const copyGeneratedBtn = document.getElementById('copyGeneratedBtn');
       
       const previewCanvasWrap = document.getElementById('previewCanvasWrap');
       const mainCanvas = document.getElementById('mainPreviewCanvas');
@@ -1722,6 +1781,20 @@
       const LEGACY_PRESETS_KEY = 'fontPreviewTextPresets';         // 旧版本使用的存储 key
 
       let textPresets = [];
+      let lastGeneratedCopy = '';
+      const translationCache = new Map();
+      const titleEnOverrides = {
+        '战争与和平': 'War and Peace',
+        '局外人': 'The Outsider',
+        '小王子': 'The Little Prince',
+        '月亮与六便士': 'The Moon and Sixpence',
+        '人间失格': 'No Longer Human',
+        '活着': 'To Live',
+        '边城': 'Border Town',
+        '围城': 'Fortress Besieged',
+        '百年孤独': 'One Hundred Years of Solitude',
+        '挪威的森林': 'Norwegian Wood'
+      };
 
       const PREVIEW_SIZE = 1500; 
       mainCanvas.width = PREVIEW_SIZE;
@@ -2392,6 +2465,164 @@
       }
 
       copyFontNameBtn.addEventListener('click', copyFontName);
+
+
+      // --- 文案生成器（固定排版 + MyMemory 翻译） ---
+      function decodeHtmlEntities(text) {
+        const helper = document.createElement('textarea');
+        helper.innerHTML = text;
+        return helper.value;
+      }
+
+      async function translateText(text, target) {
+        const key = target + '|' + text;
+        if (translationCache.has(key)) return translationCache.get(key);
+
+        const url = 'https://api.mymemory.translated.net/get?q=' + encodeURIComponent(text) + '&langpair=zh-CN%7C' + target;
+        const response = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        const raw = data && data.responseData && data.responseData.translatedText;
+        if (!raw) throw new Error('empty translation');
+
+        const clean = decodeHtmlEntities(String(raw)).replace(/\s+/g, ' ').trim();
+        if (/MYMEMORY WARNING|QUERY LENGTH LIMIT/i.test(clean)) throw new Error('translation quota');
+        translationCache.set(key, clean);
+        return clean;
+      }
+
+      function capitalizeEnglish(text) {
+        const value = String(text || '').trim().replace(/^["'“”]+|["'“”]+$/g, '');
+        return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+      }
+
+      async function generateCopyFromControls() {
+        const title = generatorTitle.value.trim();
+        const sentence = generatorSentence.value.trim().replace(/^「/, '').replace(/」$/, '');
+        if (!title) {
+          alert('请先输入中文标题');
+          generatorTitle.focus();
+          return;
+        }
+        if (!sentence) {
+          alert('请先输入一句中文');
+          generatorSentence.focus();
+          return;
+        }
+
+        const originalText = generateCopyBtn.textContent;
+        generateCopyBtn.disabled = true;
+        generateCopyBtn.textContent = '翻译中…';
+        copyGeneratedBtn.disabled = true;
+
+        try {
+          let titleEn = titleEnOverrides[title] || '';
+          if (!titleEn) {
+            try {
+              titleEn = capitalizeEnglish(await translateText(title, 'en'));
+            } catch (e) {
+              titleEn = '';
+            }
+          }
+
+          const results = await Promise.allSettled([
+            translateText(sentence, 'ja'),
+            translateText(sentence, 'en'),
+            translateText(sentence, 'ko')
+          ]);
+          const ja = results[0].status === 'fulfilled' ? results[0].value : '';
+          const en = results[1].status === 'fulfilled' ? results[1].value : '';
+          const ko = results[2].status === 'fulfilled' ? results[2].value : '';
+          titleEn = titleEn.replace(/[.。]+$/, '');
+          const failed = !ja || !en || !ko || !titleEn;
+
+          const jaLine = '・' + (ja ? ja.replace(/[。.\s]+$/, '') : '（日文翻译失败）') + '・';
+          const enLine = en ? capitalizeEnglish(en) : '（英文翻译失败）';
+          const koLine = ko || '（韩文翻译失败）';
+          const titleLine = title + (titleEn ? '·' + titleEn : '');
+
+          const text = [
+            titleLine,
+            '',
+            '「' + sentence + '」',
+            jaLine,
+            enLine,
+            koLine,
+            '',
+            'Password 0 1 2 3 4 5 6 7 8 9',
+            '目录你我的日月 —',
+            '、。？！~：；、[]『』（）《》—…',
+            '0123456789'
+          ].join('\n');
+
+          lastGeneratedCopy = text;
+          previewTextInput.value = text;
+          syncTextPresetUI(-1);
+          drawPreviewCanvas();
+          copyGeneratedBtn.disabled = false;
+          showToast(failed ? '⚠️ 已生成，部分翻译失败，可手动修改' : '✅ 文案已生成，可复制或直接编辑');
+
+          if (window.innerWidth <= 1180) {
+            previewCanvasWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        } catch (e) {
+          console.warn('文案翻译失败', e);
+          showToast('翻译失败，请检查网络后重试');
+        } finally {
+          generateCopyBtn.disabled = false;
+          generateCopyBtn.textContent = originalText;
+        }
+      }
+
+      async function copyTextToClipboard(text) {
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return true;
+          }
+        } catch (e) {}
+
+        try {
+          const helper = document.createElement('textarea');
+          helper.value = text;
+          helper.setAttribute('readonly', '');
+          helper.style.position = 'fixed';
+          helper.style.left = '-9999px';
+          document.body.appendChild(helper);
+          helper.select();
+          helper.setSelectionRange(0, text.length);
+          const ok = document.execCommand('copy');
+          document.body.removeChild(helper);
+          return ok;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      generateCopyBtn.addEventListener('click', generateCopyFromControls);
+
+      copyGeneratedBtn.addEventListener('click', async function() {
+        const text = previewTextInput.value.trim() || lastGeneratedCopy;
+        if (!text) {
+          showToast('还没有生成文案');
+          return;
+        }
+        const ok = await copyTextToClipboard(text);
+        if (!ok) {
+          showToast('复制失败，请手动选中文案');
+          return;
+        }
+        const oldText = copyGeneratedBtn.textContent;
+        copyGeneratedBtn.textContent = '已复制';
+        showToast('✅ 全部文案已复制');
+        setTimeout(function() { copyGeneratedBtn.textContent = oldText; }, 1600);
+      });
+
+      generatorCollapseTrigger.addEventListener('click', function() {
+        const open = generatorCollapseContent.classList.toggle('open');
+        generatorCollapseIcon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+        generatorCollapseTrigger.setAttribute('aria-expanded', String(open));
+      });
 
       // --- Canvas 核心渲染 ---
       // 画布跟随背景图比例；限制在 1:2 ~ 2:1，避免极端长图/宽图把文字挤没
