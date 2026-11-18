@@ -1193,6 +1193,21 @@
       text-underline-offset: 2px;
     }
     .license-links a:hover { color: var(--ink); }
+    .license-links { align-items: center; }
+    .license-copy-btn {
+      padding: 0.2rem 0.55rem;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: #475569;
+      font-family: inherit;
+      font-size: 0.63rem;
+      line-height: 1.2;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s, color 0.18s;
+    }
+    .license-copy-btn:hover { background: #f8fafc; border-color: #cbd5e1; color: var(--ink); }
+    .license-copy-btn.copied { background: #f0fdf4; border-color: #86efac; color: #15803d; }
     .license-disclaimer { margin: 0; font-size: 0.57rem; line-height: 1.4; color: #a0aaba; }
 
     @media (max-width: 560px) {
@@ -1304,6 +1319,7 @@
             </div>
             <div class="license-links">
               <a id="licenseSourceLink" href="#" target="_blank" rel="noopener" hidden>查看许可证</a>
+              <button type="button" class="license-copy-btn" id="copyFontNameBtn" title="复制当前字体名">复制字体名</button>
               <a href="https://fonts.safe.360.cn/" target="_blank" rel="noopener">去 360 查字体</a>
             </div>
             <p class="license-disclaimer">检测结果仅供参考，商用前请以字体厂商授权为准。</p>
@@ -1548,6 +1564,7 @@
       const licenseBadge = document.getElementById('licenseBadge');
       const licenseDetail = document.getElementById('licenseDetail');
       const licenseSourceLink = document.getElementById('licenseSourceLink');
+      const copyFontNameBtn = document.getElementById('copyFontNameBtn');
       const fontSizeRange = document.getElementById('fontSizeRange');
       const fontSizeValue = document.getElementById('fontSizeValue');
       const textColorPicker = document.getElementById('textColorPicker');
@@ -2326,6 +2343,55 @@
       }
 
       checkFontLicenseBtn.addEventListener('click', checkFontLicense);
+
+      async function copyFontName() {
+        const name = (currentFontDisplayName || '').trim();
+        if (!name) {
+          showToast('没有可复制的字体名');
+          return;
+        }
+
+        let ok = false;
+        try {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(name);
+            ok = true;
+          }
+        } catch (e) {}
+
+        if (!ok) {
+          try {
+            const helper = document.createElement('textarea');
+            helper.value = name;
+            helper.setAttribute('readonly', '');
+            helper.style.position = 'fixed';
+            helper.style.left = '-9999px';
+            document.body.appendChild(helper);
+            helper.select();
+            helper.setSelectionRange(0, name.length);
+            ok = document.execCommand('copy');
+            document.body.removeChild(helper);
+          } catch (e) {
+            ok = false;
+          }
+        }
+
+        if (!ok) {
+          showToast('复制失败，请手动选中字体名');
+          return;
+        }
+
+        const oldText = copyFontNameBtn.textContent;
+        copyFontNameBtn.textContent = '已复制';
+        copyFontNameBtn.classList.add('copied');
+        showToast('✅ 已复制字体名：' + name);
+        setTimeout(function() {
+          copyFontNameBtn.textContent = oldText;
+          copyFontNameBtn.classList.remove('copied');
+        }, 1600);
+      }
+
+      copyFontNameBtn.addEventListener('click', copyFontName);
 
       // --- Canvas 核心渲染 ---
       // 画布跟随背景图比例；限制在 1:2 ~ 2:1，避免极端长图/宽图把文字挤没
