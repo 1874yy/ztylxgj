@@ -1100,6 +1100,113 @@
       .preview-head h2 { font-size: 0.95rem; }
     }
 
+
+    /* 字体样张 */
+    .font-specimen {
+      position: relative;
+      margin-top: 0.9rem;
+      min-height: 190px;
+      padding: 1.1rem 0.9rem 0.9rem;
+      border: 1px solid #e8edf4;
+      border-radius: 12px;
+      background:
+        radial-gradient(420px 220px at 8% 0%, rgba(253, 226, 228, 0.55), transparent 62%),
+        radial-gradient(420px 220px at 100% 100%, rgba(224, 242, 254, 0.7), transparent 62%),
+        #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.45rem;
+      overflow: hidden;
+      text-align: center;
+    }
+    .font-specimen-label {
+      position: absolute;
+      top: 0.7rem;
+      left: 0.85rem;
+      font-size: 0.58rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #9aa6b5;
+    }
+    .font-specimen-text {
+      max-width: 100%;
+      font-size: 2.2rem;
+      line-height: 1.15;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .font-specimen-meta { font-size: 0.62rem; color: #9aa6b5; }
+
+    /* 晕染背景色：预设 + 自定义两栏 */
+    #gradientCollapseContent.open {
+      display: grid;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 1.1rem 1.2rem;
+      align-items: start;
+    }
+    .gradient-presets .mini-note { margin-bottom: 0.5rem; }
+    .gradient-presets .gradient-grid { margin-top: 0; }
+    .custom-gradient-box {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 104px;
+      gap: 0.55rem 0.65rem;
+      align-items: center;
+      margin-top: 0;
+      padding-top: 0;
+      border-top: 0;
+    }
+    .custom-gradient-box .mini-note { grid-column: 1 / -1; margin-bottom: 0; }
+    .custom-gradient-box .custom-color-group { grid-column: 1; margin-top: 0; }
+    .custom-gradient-preview {
+      grid-column: 2;
+      grid-row: 2;
+      height: 44px;
+      border: 1px solid #e8edf4;
+      border-radius: 9px;
+      background: linear-gradient(135deg, #fde2e4, #c1dfe8, #e0f2fe, #fef3c7, #e9d5ff);
+      box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.06);
+    }
+    .custom-gradient-box .color-checkbox-group { grid-column: 1 / -1; margin-top: 0.15rem; }
+    .custom-gradient-box .generate-btn { grid-column: 1 / -1; margin-top: 0.15rem; }
+
+    /* 下载清晰度居中 */
+    .download-options { justify-content: center; }
+
+    @media (max-width: 760px) {
+      #gradientCollapseContent.open { grid-template-columns: 1fr; }
+      .custom-gradient-box { grid-template-columns: minmax(0, 1fr) 96px; }
+      .font-specimen { min-height: 160px; }
+      .font-specimen-text { font-size: 1.9rem; }
+    }
+    @media (max-width: 560px) {
+      body { padding: 0.9rem 0.65rem 1.6rem; }
+      .brand-mark { width: 38px; height: 38px; border-radius: 12px; font-size: 1rem; }
+      .brand h1 { font-size: 1.22rem; }
+      .brand p { font-size: 0.64rem; }
+      .header-actions { width: 100%; }
+      .save-settings-btn, .path-btn { flex: 1; }
+      .path-status { max-width: 100%; }
+      .settings-panel { padding: 0.2rem 0.9rem; }
+      .preview-panel { padding: 0.85rem; border-radius: 18px; }
+      .preview-text textarea { height: 82px; }
+      .section-note { display: none; }
+      .font-specimen { min-height: 150px; }
+      .font-specimen-text { font-size: 1.75rem; }
+      .custom-gradient-box { grid-template-columns: minmax(0, 1fr) 88px; }
+      .range-btn { width: 28px; height: 28px; }
+      .settings-panel input[type="text"],
+      .settings-panel input[type="file"],
+      .settings-panel .field select,
+      .settings-panel textarea,
+      .preview-panel textarea,
+      .export-row select,
+      .preset-trigger { font-size: 16px; }
+    }
+
   </style>
 </head>
 <body>
@@ -1161,6 +1268,11 @@
             </select>
           </div>
           <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
+          <div class="font-specimen">
+            <div class="font-specimen-label">字体样张</div>
+            <div class="font-specimen-text" id="fontSpecimenText">永 字 Aa 123</div>
+            <div class="font-specimen-meta"><span id="fontSpecimenName">系统默认</span></div>
+          </div>
         </section>
 
         <!-- 文字样式 -->
@@ -1251,10 +1363,12 @@
             <span class="collapse-icon" id="gradientCollapseIcon">▾</span>
           </button>
           <div class="collapse-content" id="gradientCollapseContent">
-            <p class="mini-note">点击选择预设晕染背景（会覆盖背景图）</p>
-            <div class="gradient-grid" id="gradientGrid"></div>
+            <div class="gradient-presets">
+              <p class="mini-note">预设晕染（点击即应用）</p>
+              <div class="gradient-grid" id="gradientGrid"></div>
+            </div>
             <div class="custom-gradient-box">
-              <p class="mini-note">自定义晕染色彩</p>
+              <p class="mini-note">自定义晕染</p>
               <div class="custom-color-group">
                 <input type="color" id="customColor1" value="#fde2e4" title="颜色 1">
                 <input type="color" id="customColor2" value="#c1dfe8" title="颜色 2">
@@ -1262,6 +1376,7 @@
                 <input type="color" id="customColor4" value="#fef3c7" title="颜色 4">
                 <input type="color" id="customColor5" value="#e9d5ff" title="颜色 5">
               </div>
+              <div class="custom-gradient-preview" id="customGradientPreview" title="自定义晕染预览"></div>
               <div class="color-checkbox-group">
                 <label><input type="checkbox" id="useColor1" checked>颜色1</label>
                 <label><input type="checkbox" id="useColor2" checked>颜色2</label>
@@ -1353,7 +1468,6 @@
                 <option value="未知">未知 (隐藏此项)</option>
               </select>
             </div>
-            <p class="footnote">* 纯 Canvas 渲染，预览与下载完全同步；下载文件夹会被记住。</p>
           </div>
         </div>
       </section>
@@ -1394,6 +1508,8 @@
       const fontFileInput = document.getElementById('fontFileInput');
       const systemFontSelect = document.getElementById('systemFontSelect');
       const currentFontNameSpan = document.getElementById('currentFontName');
+      const fontSpecimenText = document.getElementById('fontSpecimenText');
+      const fontSpecimenName = document.getElementById('fontSpecimenName');
       const fontSizeRange = document.getElementById('fontSizeRange');
       const fontSizeValue = document.getElementById('fontSizeValue');
       const textColorPicker = document.getElementById('textColorPicker');
@@ -1463,8 +1579,31 @@
       const useColor3 = document.getElementById('useColor3');
       const useColor4 = document.getElementById('useColor4');
       const useColor5 = document.getElementById('useColor5');
+      const customColorInputs = [customColor1, customColor2, customColor3, customColor4, customColor5];
+      const customColorChecks = [useColor1, useColor2, useColor3, useColor4, useColor5];
+      const customGradientPreview = document.getElementById('customGradientPreview');
       
       const generateCustomGradientBtn = document.getElementById('generateCustomGradientBtn');
+
+      function updateCustomGradientPreview() {
+        if (!customGradientPreview) return;
+        const colors = [];
+        for (let i = 0; i < customColorInputs.length; i++) {
+          if (customColorChecks[i].checked) colors.push(customColorInputs[i].value);
+        }
+        if (colors.length === 0) {
+          customGradientPreview.style.background = '#f1f5f9';
+          customGradientPreview.classList.add('is-empty');
+        } else {
+          customGradientPreview.style.background = `linear-gradient(135deg, ${colors.join(', ')})`;
+          customGradientPreview.classList.remove('is-empty');
+        }
+      }
+      customColorInputs.forEach(function(input, index) {
+        input.addEventListener('input', updateCustomGradientPreview);
+        customColorChecks[index].addEventListener('change', updateCustomGradientPreview);
+      });
+      updateCustomGradientPreview();
 
       const cropModal = document.getElementById('cropModal');
       const cropperWrapper = document.getElementById('cropperWrapper');
@@ -1998,9 +2137,15 @@
         }
       }
 
+      function updateFontSpecimen() {
+        if (!fontSpecimenText) return;
+        fontSpecimenText.style.fontFamily = currentFontFamily;
+        if (fontSpecimenName) fontSpecimenName.textContent = currentFontDisplayName;
+      }
+
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
-        
+        updateFontSpecimen();
         try {
           await document.fonts.load(`16px ${currentFontFamily}`);
         } catch(e) {}
@@ -2879,6 +3024,7 @@
             useColor4.checked = settings.useColors[3];
             useColor5.checked = settings.useColors[4];
           }
+          updateCustomGradientPreview();
 
           if (settings.align) {
             currentAlign = settings.align;
