@@ -460,35 +460,683 @@
       .cropper-wrapper { height: 300px; }
       .download-group { flex-direction: column; }
     }
+    /* ===== v2：左设置 / 右预览的工具布局 ===== */
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --soft: #94a3b8;
+      --line: #e6ebf2;
+      --panel: rgba(255, 255, 255, 0.68);
+    }
+
+    body {
+      display: block;
+      min-height: 100vh;
+      padding: 2rem 1.5rem 3rem;
+      background:
+        radial-gradient(900px 520px at 6% -8%, rgba(253, 226, 228, 0.8), transparent 62%),
+        radial-gradient(820px 520px at 98% 0%, rgba(224, 242, 254, 0.85), transparent 58%),
+        radial-gradient(700px 500px at 60% 105%, rgba(233, 213, 255, 0.35), transparent 60%),
+        linear-gradient(180deg, #f8f9fc 0%, #eef2f8 100%);
+      background-attachment: fixed;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 1420px;
+      margin: 0 auto;
+      padding: 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    /* 顶部 */
+    .app-header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      padding: 0 0.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .brand { display: flex; align-items: center; gap: 0.9rem; min-width: 0; }
+    .brand-mark {
+      width: 44px; height: 44px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #1e293b, #475569);
+      color: #fff; font-size: 1.15rem; font-weight: 600;
+      box-shadow: 0 12px 26px -14px rgba(15, 23, 42, 0.65);
+    }
+    .brand-text { min-width: 0; }
+    .brand h1 {
+      display: block;
+      font-size: 1.55rem;
+      font-weight: 600;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    .brand p {
+      margin-top: 0.18rem;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+      color: #7b8798;
+    }
+    .header-side { display: flex; flex-direction: column; align-items: flex-end; gap: 0.55rem; }
+    .header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.45rem; flex-wrap: wrap; }
+    .save-settings-btn,
+    .path-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      height: 34px; padding: 0 0.9rem;
+      border-radius: 9px; border: 1px solid transparent;
+      font-family: inherit; font-size: 0.75rem; font-weight: 500;
+      white-space: nowrap; cursor: pointer; transition: all 0.18s;
+    }
+    .save-settings-btn { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .save-settings-btn:hover { background: #1e293b; }
+    .path-btn { background: rgba(255, 255, 255, 0.72); border-color: rgba(148, 163, 184, 0.45); color: #334155; }
+    .path-btn:hover { background: #fff; border-color: #94a3b8; }
+    .path-status {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 0.67rem;
+      color: var(--soft);
+    }
+    .save-hint { font-size: 0.67rem; color: #059669; margin: 0; }
+    .social-links { display: flex; gap: 0.25rem; }
+    .social-btn {
+      display: inline-flex; align-items: center;
+      padding: 0.25rem 0.55rem; border: 1px solid transparent; border-radius: 7px;
+      background: transparent; color: #7b8798;
+      font-size: 0.67rem; font-weight: 500;
+      box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none;
+    }
+    .social-btn:hover { background: rgba(255, 255, 255, 0.72); color: #334155; transform: none; box-shadow: none; }
+
+    /* 主工作区 */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 480px);
+      gap: 1.25rem;
+      align-items: start;
+    }
+    .workspace > * { min-width: 0; }
+    .settings-panel,
+    .preview-panel {
+      background: var(--panel);
+      backdrop-filter: blur(22px) saturate(150%);
+      -webkit-backdrop-filter: blur(22px) saturate(150%);
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 24px;
+      box-shadow: 0 24px 60px -42px rgba(15, 23, 42, 0.45),
+                  inset 0 1px 1px rgba(255, 255, 255, 0.9);
+    }
+
+    /* 设置面板 */
+    .settings-panel {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0 1.4rem;
+      padding: 0.35rem 1.5rem;
+    }
+    .settings-panel .control-group {
+      display: block;
+      min-width: 0;
+      margin: 0;
+      padding: 1.15rem 0 1.25rem;
+      background: none;
+      border: 0;
+      border-top: 1px solid rgba(15, 23, 42, 0.06);
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .settings-panel .control-group:nth-child(1),
+    .settings-panel .control-group:nth-child(2) { border-top: 0; }
+    .settings-panel .control-group.span-2 { grid-column: 1 / -1; }
+    /* 文案库排在背景前面，首屏更容易看到 */
+    .settings-panel .control-group:nth-child(3) { order: 4; }
+    .settings-panel .control-group:nth-child(4) { order: 3; }
+    .section-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 0.75rem; margin-bottom: 0.9rem;
+    }
+    .section-head h3 {
+      margin: 0;
+      font-size: 0.84rem;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--ink);
+    }
+    .section-note { font-size: 0.64rem; color: #9aa6b5; white-space: nowrap; }
+
+    /* 表单 */
+    .settings-panel .field,
+    .preview-panel .field { gap: 0.32rem; margin-bottom: 0.85rem; }
+    .settings-panel .field:last-child,
+    .preview-panel .field:last-child { margin-bottom: 0; }
+    .settings-panel .field label,
+    .preview-panel .field label,
+    .export-row label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: #6b7788;
+    }
+    .settings-panel input[type="text"],
+    .settings-panel input[type="file"],
+    .settings-panel .field select,
+    .settings-panel textarea,
+    .preview-panel textarea,
+    .export-row select {
+      width: 100%;
+      padding: 0.55rem 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: #1e293b;
+      font-family: inherit;
+      font-size: 0.82rem;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .settings-panel input[type="text"]:focus,
+    .settings-panel .field select:focus,
+    .settings-panel textarea:focus,
+    .preview-panel textarea:focus,
+    .export-row select:focus {
+      outline: none;
+      border-color: #94a3b8;
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+    }
+    .settings-panel .field select,
+    .export-row select {
+      appearance: auto !important;
+      -webkit-appearance: menulist !important;
+      background-color: #fff;
+      cursor: pointer;
+    }
+    .settings-panel input[type="file"] { padding: 0.32rem 0.4rem; font-size: 0.72rem; }
+    .settings-panel input[type="file"]::file-selector-button {
+      padding: 0.32rem 0.7rem;
+      margin-right: 0.55rem;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: #f8fafc;
+      color: #334155;
+      font-family: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    .settings-panel input[type="file"]::file-selector-button:hover { background: #f1f5f9; }
+
+    .font-status {
+      margin-top: 0.2rem;
+      padding: 0.5rem 0.7rem;
+      border: 1px solid #eef2f7;
+      border-radius: 9px;
+      background: #f8fafc;
+      font-size: 0.69rem;
+      color: var(--muted);
+    }
+    .font-status span { color: var(--ink); font-weight: 600; }
+
+    /* 滑块 */
+    .range-wrapper { gap: 0.45rem; }
+    .range-btn {
+      width: 24px; height: 24px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #475569;
+      font-size: 13px;
+      box-shadow: none;
+    }
+    .range-btn:hover { background: #f8fafc; }
+    .range-wrapper input[type="range"] {
+      height: 4px;
+      margin: 0 6px;
+      background: #e8edf4;
+    }
+    .range-wrapper input[type="range"]::-webkit-slider-thumb {
+      width: 14px; height: 14px;
+      background: #fff;
+      border: 2px solid #475569;
+      box-shadow: 0 1px 4px rgba(15, 23, 42, 0.16);
+    }
+    .range-value {
+      min-width: 2.75rem;
+      padding: 0.2rem 0.35rem;
+      border: 1px solid #eef2f7;
+      border-radius: 6px;
+      background: #f8fafc;
+      font-size: 0.69rem;
+      color: #475569;
+    }
+
+    /* 颜色 */
+    .color-row { gap: 0.5rem; }
+    .color-row input[type="color"] {
+      width: 34px; height: 34px;
+      padding: 2px;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #fff;
+      cursor: pointer;
+    }
+    .color-hex {
+      padding: 0.3rem 0.55rem;
+      border: 1px solid #eef2f7;
+      border-radius: 7px;
+      background: #f8fafc;
+      font-size: 0.7rem;
+      color: #475569;
+    }
+    #strokeColorPicker,
+    #shadowColorPicker {
+      width: 30px !important;
+      height: 30px !important;
+      padding: 2px !important;
+      margin-left: 0.1rem !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 8px !important;
+      background: #fff !important;
+      box-shadow: none !important;
+    }
+
+    /* 对齐 / 复选框 */
+    .align-group {
+      gap: 3px;
+      padding: 3px;
+      border-radius: 9px;
+      background: #f1f5f9;
+      margin-top: 0.15rem;
+    }
+    .align-btn {
+      border: 0;
+      border-radius: 7px;
+      padding: 0.42rem 0;
+      background: transparent;
+      font-size: 0.73rem;
+      color: #64748b;
+    }
+    .align-btn:hover { background: transparent; }
+    .align-btn.active {
+      background: #fff;
+      color: var(--ink);
+      border-color: transparent;
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+    }
+    .checkbox-row { gap: 0.45rem; font-size: 0.73rem; color: #475569; }
+    .checkbox-row input[type="checkbox"] {
+      width: 15px; height: 15px;
+      accent-color: var(--ink);
+    }
+
+    /* 背景区 */
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.9rem; }
+    .inline-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+      margin: 0.1rem 0 0.65rem;
+    }
+    .mini-actions { display: flex; gap: 0.45rem; }
+    .mini-actions .btn-small { margin-top: 0; }
+    .btn-small {
+      padding: 0.45rem 0.7rem;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: #334155;
+      font-family: inherit;
+      font-size: 0.71rem;
+      font-weight: 500;
+      box-shadow: none;
+      margin-top: 0;
+      cursor: pointer;
+      transition: background 0.18s, border-color 0.18s;
+    }
+    .btn-small:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+    .settings-panel .collapse-trigger {
+      width: 100%;
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 0;
+      padding: 0.8rem 0 0.15rem;
+      border: 0;
+      border-top: 1px dashed #e7ecf3;
+      background: transparent;
+      color: #475569;
+      font-family: inherit;
+      font-size: 0.73rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .collapse-title { display: flex; align-items: center; gap: 0.4rem; }
+    .collapse-title::before {
+      content: "";
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #cbd5e1;
+    }
+    .collapse-icon { color: var(--soft); font-size: 0.7rem; transition: transform 0.25s; }
+    .collapse-content { margin-top: 0.85rem; display: none; }
+    .collapse-content.open { display: block; }
+    .mini-note { font-size: 0.66rem; color: #94a3b8; margin-bottom: 0.5rem; }
+    .custom-gradient-box {
+      margin-top: 0.9rem;
+      padding-top: 0.9rem;
+      border-top: 1px dashed #e7ecf3;
+    }
+    .gradient-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.45rem; margin-top: 0.3rem; }
+    .gradient-item {
+      height: 38px;
+      border: 1px solid rgba(255, 255, 255, 0.9);
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+    }
+    .custom-color-group { justify-content: flex-start; gap: 0.5rem; margin-top: 0.4rem; }
+    .custom-color-group input[type="color"] {
+      width: 26px; height: 26px;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 2px;
+      background: #fff;
+    }
+    .color-checkbox-group {
+      flex-wrap: wrap;
+      justify-content: flex-start;
+      gap: 0.35rem 0.7rem;
+      margin-top: 0.7rem;
+      font-size: 0.62rem;
+      overflow: visible;
+    }
+    .color-checkbox-group input[type="checkbox"] { width: 12px; height: 12px; }
+    .generate-btn {
+      margin-top: 0.6rem;
+      padding: 0.5rem 0;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f8fafc;
+      font-size: 0.72rem;
+      color: #334155;
+    }
+    .generate-btn:hover { background: #f1f5f9; }
+
+    /* 文案库 */
+    .preset-trigger {
+      padding: 0.6rem 0.75rem;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.82rem;
+      box-shadow: none;
+    }
+    .preset-trigger:hover { border-color: #cbd5e1; }
+    .preset-select.open .preset-trigger {
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.14);
+    }
+    .preset-arrow { color: var(--soft); }
+    .preset-menu {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      box-shadow: 0 20px 45px -22px rgba(15, 23, 42, 0.4);
+    }
+    .preset-option { border-radius: 8px; font-size: 0.8rem; padding: 0.5rem 0.6rem; }
+    .preset-option.active { background: #eef2f7; color: var(--ink); font-weight: 600; }
+    .copy-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+      gap: 1.1rem;
+      align-items: start;
+    }
+    .copy-grid .field { margin-bottom: 0; }
+    .copy-actions { min-width: 0; }
+    .copy-actions .field-label {
+      margin-bottom: 0.32rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+      color: #6b7788;
+    }
+    .copy-grid .text-preset-actions {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin-top: 0;
+    }
+    .text-preset-actions {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin-top: 0.55rem;
+    }
+    .text-preset-actions .btn-small {
+      padding: 0.45rem 0.25rem;
+      font-size: 0.69rem;
+      white-space: normal;
+    }
+    .preset-source { margin-top: 0.55rem; font-size: 0.61rem; color: #a0aaba; }
+
+    /* 预览面板 */
+    .preview-area {
+      display: block;
+      position: sticky;
+      top: 1rem;
+      align-self: start;
+      max-height: calc(100vh - 2rem);
+    }
+    .preview-panel {
+      padding: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      scrollbar-width: thin;
+      scrollbar-color: #cbd5e1 transparent;
+    }
+    .preview-head {
+      display: flex; align-items: flex-end; justify-content: space-between;
+      gap: 1rem; margin-bottom: 0.7rem;
+    }
+    .preview-kicker {
+      font-size: 0.58rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--soft);
+    }
+    .preview-head h2 {
+      margin-top: 0.08rem;
+      font-size: 1.02rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+    .canvas-size {
+      flex-shrink: 0;
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #eef2f7;
+      border-radius: 6px;
+      background: #f8fafc;
+      font-size: 0.64rem;
+      color: var(--soft);
+      font-variant-numeric: tabular-nums;
+    }
+    .preview-panel .preview-container {
+      width: 100%;
+      max-width: 100%;
+      padding: 0;
+      background: none;
+      border: 0;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .preview-canvas-wrap {
+      border: 1px solid #e8edf4;
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 0 12px 30px -24px rgba(15, 23, 42, 0.4);
+    }
+    .preview-text { margin-top: 0.85rem; }
+    .preview-text .field { margin-bottom: 0; }
+    .preview-text textarea {
+      height: 88px;
+      min-height: 82px;
+      padding: 0.6rem 0.7rem;
+      border-radius: 10px;
+      resize: vertical;
+      font-size: 0.79rem;
+      line-height: 1.55;
+    }
+    .export-panel {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid rgba(15, 23, 42, 0.06);
+    }
+    .export-row { display: flex; align-items: center; gap: 0.7rem; margin: 0.8rem 0 0; }
+    .export-row label { flex-shrink: 0; margin: 0; }
+    .export-row select { flex: 1; min-width: 0; }
+    .download-options {
+      justify-content: flex-start;
+      gap: 0.9rem;
+      margin-bottom: 0.65rem;
+      font-size: 0.69rem;
+      color: var(--muted);
+    }
+    .download-options label { gap: 0.3rem; }
+    .download-options input[type="radio"] { accent-color: var(--ink); }
+    .download-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; }
+    .download-buttons .btn {
+      width: 100%;
+      padding: 0.65rem 0.5rem;
+      border-radius: 10px;
+      font-size: 0.76rem;
+      box-shadow: none;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    .download-buttons .btn:not(.btn-primary) {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #334155;
+    }
+    .download-buttons .btn:not(.btn-primary):hover {
+      background: #f8fafc;
+      color: #334155;
+      transform: none;
+      box-shadow: none;
+    }
+    .download-buttons .btn-primary {
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #fff;
+    }
+    .download-buttons .btn-primary:hover {
+      background: #1e293b;
+      transform: none;
+      box-shadow: none;
+    }
+    .footnote {
+      margin-top: 0.6rem;
+      font-size: 0.58rem;
+      line-height: 1.5;
+      color: #a0aaba;
+      text-align: left;
+    }
+    .preview-text textarea::-webkit-scrollbar,
+    .preview-panel::-webkit-scrollbar { width: 6px; }
+    .preview-text textarea::-webkit-scrollbar-thumb,
+    .preview-panel::-webkit-scrollbar-thumb {
+      border-radius: 3px;
+      background: #cbd5e1;
+    }
+    .preview-text textarea::-webkit-scrollbar-track,
+    .preview-panel::-webkit-scrollbar-track { background: transparent; }
+
+    /* 响应式 */
+    @media (max-width: 1180px) {
+      .workspace { grid-template-columns: 1fr; }
+      .preview-area {
+        position: static;
+        order: -1;
+        width: 100%;
+        max-width: 640px;
+        margin: 0 auto;
+        max-height: none;
+      }
+      .preview-panel { max-height: none; overflow: visible; }
+      .settings-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (min-width: 1181px) and (max-height: 820px) {
+      .workspace { grid-template-columns: minmax(0, 1fr) minmax(340px, 420px); }
+      .preview-panel { padding: 0.9rem; }
+      .preview-text textarea { height: 76px; }
+      .preview-head { margin-bottom: 0.55rem; }
+      .preview-text { margin-top: 0.7rem; }
+      .export-panel { margin-top: 0.7rem; padding-top: 0.7rem; }
+    }
+    @media (max-width: 760px) {
+      body { padding: 1rem 0.9rem 2rem; background-attachment: scroll; }
+      .app-header { align-items: flex-start; }
+      .header-side { width: 100%; align-items: flex-start; }
+      .header-actions { justify-content: flex-start; }
+      .social-links { justify-content: flex-start; }
+      .settings-panel { grid-template-columns: 1fr; padding: 0.25rem 1.1rem; }
+      .settings-panel .control-group:nth-child(2) { border-top: 1px solid rgba(15, 23, 42, 0.06); }
+      .field-grid { grid-template-columns: 1fr; }
+      .copy-grid { grid-template-columns: 1fr; }
+      .text-preset-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .download-buttons { grid-template-columns: 1fr; }
+      .brand h1 { font-size: 1.35rem; }
+      .preview-panel { padding: 1rem; }
+      .preview-head h2 { font-size: 0.95rem; }
+    }
+
   </style>
 </head>
 <body>
   <div class="toast" id="toast">✅ 操作成功</div>
 
   <div class="app">
-    <div class="header">
-      <div style="display:flex; flex-direction:column; gap:0.5rem;">
-        <h1>观月抱云の字体预览工具</h1>
-        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-          <button class="save-settings-btn" id="saveSettingsBtn">保存当前设置</button>
-          <span class="save-hint" id="saveHint">设置已保存（清理浏览器缓存会丢失）</span>
-          
-          <button class="path-btn" id="chooseSavePathBtn">设定下载文件夹</button>
-          <span class="path-status" id="pathStatus">未选择文件夹</span>
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-mark">字</div>
+        <div class="brand-text">
+          <h1>观月抱云の字体预览工具</h1>
+          <p>上传字体 · 调整样式 · 实时预览 · 一键导出</p>
         </div>
       </div>
-      <div class="social-links">
-        <button class="social-btn" data-url="https://xhslink.cn/o/4vKg7Z4neNC" data-name="小红书">小红书</button>
-        <button class="social-btn" data-url="https://qun.qq.com/universal-share/share?ac=1&authKey=btae6E%2BeMJOtw78ee55%2BM9eMXE9OnvBw7YEXuIqbw4bYi63rCFBDBKdEJ%2B%2B6r1tZ&busi_data=eyJncm91cENvZGUiOiI4NzYwNTMwMzQiLCJ0b2tlbiI6IlJ0UGFnWDJORjhmalh4OG8xTS9EUjZnVzlkcTV0L3RzVmVwYjVrblFBOXkza01uTnFMVytONUtQSHZTc2JjN0MiLCJ1aW4iOiI0ODExNDQ5MSJ9&data=cJyEVKBAzokUS-90BsYpF8-EPBZcFWfA2RtKvHU4BKZ40pmRN2MYfmruS6ES2nXMvOPhVdo-1H0M-cHPA8r94g&svctype=4&tempid=h5_group_info" data-name="QQ群">QQ群</button>
-        <button class="social-btn" data-url="https://c0ks-10f3p663a3.maozi.io/" data-name="从0开始">从0开始</button>
+      <div class="header-side">
+        <div class="header-actions">
+          <button class="save-settings-btn" id="saveSettingsBtn">保存设置</button>
+          <span class="save-hint" id="saveHint">已保存</span>
+          <button class="path-btn" id="chooseSavePathBtn" title="选择下载文件夹">下载位置</button>
+          <span class="path-status" id="pathStatus">未选择文件夹</span>
+        </div>
+        <div class="social-links">
+          <button class="social-btn" data-url="https://xhslink.cn/o/4vKg7Z4neNC" data-name="小红书">小红书</button>
+          <button class="social-btn" data-url="https://qun.qq.com/universal-share/share?ac=1&authKey=btae6E%2BeMJOtw78ee55%2BM9eMXE9OnvBw7YEXuIqbw4bYi63rCFBDBKdEJ%2B%2B6r1tZ&busi_data=eyJncm91cENvZGUiOiI4NzYwNTMwMzQiLCJ0b2tlbiI6IlJ0UGFnWDJORjhmalh4OG8xTS9EUjZnVzlkcTV0L3RzVmVwYjVrblFBOXkza01uTnFMVytONUtQSHZTc2JjN0MiLCJ1aW4iOiI0ODExNDQ5MSJ9&data=cJyEVKBAzokUS-90BsYpF8-EPBZcFWfA2RtKvHU4BKZ40pmRN2MYfmruS6ES2nXMvOPhVdo-1H0M-cHPA8r94g&svctype=4&tempid=h5_group_info" data-name="QQ群">QQ群</button>
+          <button class="social-btn" data-url="https://c0ks-10f3p663a3.maozi.io/" data-name="从0开始">从0开始</button>
+        </div>
       </div>
-    </div>
+    </header>
 
-    <div class="main-content">
-      <div class="controls-grid">
-        <!-- 字体设置 -->
-        <div class="control-group">
-          <h3>字体设置</h3>
+    <div class="workspace">
+      <aside class="settings-panel">
+        <!-- 字体 -->
+        <section class="control-group">
+          <div class="section-head">
+            <h3>字体</h3>
+            <span class="section-note">上传或选择系统字体</span>
+          </div>
           <div class="field">
             <label>上传字体文件 (.ttf, .otf, .woff, .woff2)</label>
             <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2">
@@ -513,11 +1161,14 @@
             </select>
           </div>
           <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
-        </div>
+        </section>
 
-        <!-- 样式调整 -->
-        <div class="control-group">
-          <h3>样式调整</h3>
+        <!-- 文字样式 -->
+        <section class="control-group">
+          <div class="section-head">
+            <h3>文字样式</h3>
+            <span class="section-note">大小 · 颜色 · 描边 · 阴影</span>
+          </div>
           <div class="field">
             <label>字号</label>
             <div class="range-wrapper">
@@ -534,18 +1185,16 @@
               <span class="color-hex" id="textColorHex">#1e293b</span>
             </div>
           </div>
-          
           <div class="field">
-            <label>文字描边 (适合复杂背景)</label>
+            <label>文字描边（适合复杂背景）</label>
             <div class="range-wrapper">
               <div class="range-btn" id="strokeSizeMinus">−</div>
               <input type="range" id="strokeSizeRange" min="0" max="10" value="0" step="0.5">
               <div class="range-btn" id="strokeSizePlus">+</div>
               <span class="range-value" id="strokeSizeValue">0px</span>
-              <input type="color" id="strokeColorPicker" value="#ffffff" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-left: 0.2rem;" title="描边颜色">
+              <input type="color" id="strokeColorPicker" value="#ffffff" title="描边颜色">
             </div>
           </div>
-
           <div class="field">
             <label>文字阴影</label>
             <div class="range-wrapper">
@@ -553,59 +1202,59 @@
               <input type="range" id="shadowSizeRange" min="0" max="20" value="0" step="1">
               <div class="range-btn" id="shadowSizePlus">+</div>
               <span class="range-value" id="shadowSizeValue">0px</span>
-              <input type="color" id="shadowColorPicker" value="#000000" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-left: 0.2rem;" title="阴影颜色">
+              <input type="color" id="shadowColorPicker" value="#000000" title="阴影颜色">
             </div>
           </div>
-
           <div class="field">
-            <label>文字对齐</label>
+            <label>对齐方式</label>
             <div class="align-group">
               <button class="align-btn" data-align="left">居左</button>
               <button class="align-btn active" data-align="center">居中</button>
               <button class="align-btn" data-align="right">居右</button>
             </div>
           </div>
-          <div class="checkbox-row" style="margin-top:0.3rem;">
+          <label class="checkbox-row">
             <input type="checkbox" id="titleFirstLineCheckbox">
-            <label for="titleFirstLineCheckbox" style="font-weight:400; cursor:pointer;">首行作为标题（加粗加大）</label>
-          </div>
-        </div>
+            <span>首行作为标题（加粗加大）</span>
+          </label>
+        </section>
 
-        <!-- 自定义背景 -->
-        <div class="control-group">
-          <h3>自定义背景</h3>
-          <div class="field">
-            <label>上传背景图 (JPEG, PNG, GIF, WEBP)</label>
-            <input type="file" id="bgImageInput" name="bgImage" accept="image/*">
+        <!-- 背景 -->
+        <section class="control-group span-2">
+          <div class="section-head">
+            <h3>背景</h3>
+            <span class="section-note">图片或晕染背景</span>
           </div>
-          
-          <div class="field">
-            <label>底图来源 (显示在预览图底部)</label>
-            <input type="text" id="bgSourceInput" value="" placeholder="例：取自网络 / 个人原创…" maxlength="20">
+          <div class="field-grid">
+            <div class="field">
+              <label>上传背景图 (JPEG, PNG, GIF, WEBP)</label>
+              <input type="file" id="bgImageInput" name="bgImage" accept="image/*">
+            </div>
+            <div class="field">
+              <label>底图来源（显示在预览图底部）</label>
+              <input type="text" id="bgSourceInput" value="" placeholder="例：取自网络 / 个人原创…" maxlength="20">
+            </div>
+          </div>
+          <div class="inline-row">
+            <label class="checkbox-row">
+              <input type="checkbox" id="useBgImageCheckbox" checked>
+              <span>使用背景图片</span>
+            </label>
+            <div class="mini-actions">
+              <button class="btn-small" id="clearBgImageBtn">移除背景图</button>
+              <button class="btn-small" id="openCropModalBtn">裁剪图片</button>
+            </div>
           </div>
 
-          <div class="checkbox-row">
-            <input type="checkbox" id="useBgImageCheckbox" checked>
-            <label for="useBgImageCheckbox" style="font-weight:400; cursor:pointer;">使用背景图片</label>
-          </div>
-          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
-            <button class="btn-small" id="clearBgImageBtn" style="flex:1;">移除背景图</button>
-            <button class="btn-small" id="openCropModalBtn" style="flex:1;">裁剪图片</button>
-          </div>
-        </div>
-
-        <!-- 自定义背景色 -->
-        <div class="control-group">
-          <div class="collapse-trigger" id="gradientCollapseTrigger">
-            <h3>自定义背景色</h3>
-            <span class="collapse-icon" id="gradientCollapseIcon">▼</span>
-          </div>
+          <button type="button" class="collapse-trigger" id="gradientCollapseTrigger" aria-expanded="false">
+            <span class="collapse-title">使用晕染背景色</span>
+            <span class="collapse-icon" id="gradientCollapseIcon">▾</span>
+          </button>
           <div class="collapse-content" id="gradientCollapseContent">
-            <p style="font-size:0.7rem; color:#64748b; margin-bottom:0.5rem;">点击选择预设晕染背景（将覆盖背景图）</p>
+            <p class="mini-note">点击选择预设晕染背景（会覆盖背景图）</p>
             <div class="gradient-grid" id="gradientGrid"></div>
-            
-            <div style="margin-top:0.8rem; padding-top:0.8rem; border-top:1px dashed rgba(0,0,0,0.1); width:100%;">
-              <p style="font-size:0.7rem; color:#64748b; margin-bottom:0.5rem;">自定义晕染色彩</p>
+            <div class="custom-gradient-box">
+              <p class="mini-note">自定义晕染色彩</p>
               <div class="custom-color-group">
                 <input type="color" id="customColor1" value="#fde2e4" title="颜色 1">
                 <input type="color" id="customColor2" value="#c1dfe8" title="颜色 2">
@@ -623,82 +1272,94 @@
               <button class="generate-btn" id="generateCustomGradientBtn">生成新晕染</button>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- 商用授权 -->
-        <div class="control-group">
-          <h3>商用授权</h3>
-          <div class="field">
-            <label>选择授权状态</label>
-            <select id="commercialSelect">
-              <option value="可免费商用">可免费商用</option>
-              <option value="需自行购入商用权">需自行购入商用权</option>
-              <option value="未知">未知 (隐藏此项)</option>
-            </select>
+        <!-- 文案库 -->
+        <section class="control-group span-2">
+          <div class="section-head">
+            <h3>文案库</h3>
+            <span class="section-note">选择预设或保存自己的文案</span>
           </div>
-        </div>
-
-        <!-- 文案管理区 -->
-        <div class="control-group">
-          <h3>文案库</h3>
-          <div class="field">
-            <label>选择预设文案</label>
-            <div class="preset-select" id="textPresetSelectBox">
-              <button type="button" class="preset-trigger" id="textPresetTrigger"
-                      aria-haspopup="listbox" aria-expanded="false">
-                <span class="preset-trigger-label" id="textPresetLabel">加载中…</span>
-                <span class="preset-arrow">▾</span>
-              </button>
-              <div class="preset-menu" id="textPresetMenu" role="listbox" aria-label="预设文案列表"></div>
-              <select id="textPresetSelect" tabindex="-1" aria-hidden="true"></select>
+          <div class="copy-grid">
+            <div class="field">
+              <label>选择预设文案</label>
+              <div class="preset-select" id="textPresetSelectBox">
+                <button type="button" class="preset-trigger" id="textPresetTrigger"
+                        aria-haspopup="listbox" aria-expanded="false">
+                  <span class="preset-trigger-label" id="textPresetLabel">加载中…</span>
+                  <span class="preset-arrow">▾</span>
+                </button>
+                <div class="preset-menu" id="textPresetMenu" role="listbox" aria-label="预设文案列表"></div>
+                <select id="textPresetSelect" tabindex="-1" aria-hidden="true"></select>
+              </div>
+            </div>
+            <div class="copy-actions">
+              <div class="field-label">管理文案</div>
+              <div class="text-preset-actions">
+                <button class="btn-small" id="saveTextPresetBtn">保存/覆盖</button>
+                <button class="btn-small" id="deleteTextPresetBtn">删除</button>
+                <button class="btn-small" id="exportTextBtn">导出</button>
+                <button class="btn-small" id="importTextBtn">导入</button>
+                <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                <button class="btn-small" id="resetTextPresetsBtn" style="grid-column: 1 / -1;">恢复默认文案</button>
+              </div>
             </div>
           </div>
-          <div class="text-preset-actions">
-            <button class="btn-small" id="saveTextPresetBtn">保存/覆盖</button>
-            <button class="btn-small" id="deleteTextPresetBtn">删除</button>
-            <button class="btn-small" id="exportTextBtn">导出</button>
-            <button class="btn-small" id="importTextBtn">导入</button>
-            <input type="file" id="importFileInput" accept=".json" style="display: none;">
-            <button class="btn-small" id="resetTextPresetsBtn" style="grid-column: 1 / -1;">恢复 fengmian.json 文案</button>
-          </div>
-          <p class="preset-source" id="presetSourceHint">文案来自 fengmian.json</p>
-        </div>
+          <p class="preset-source" id="presetSourceHint">预设文案加载中…</p>
+        </section>
+      </aside>
 
-        <!-- 预览文字 -->
-        <div class="control-group">
-          <h3>当前预览文字</h3>
-          <div class="field">
-            <textarea id="previewTextInput" rows="3" placeholder="输入要预览的文字…（可换行）"></textarea>
+      <section class="preview-area">
+        <div class="preview-panel">
+          <div class="preview-head">
+            <div>
+              <div class="preview-kicker">Live Preview</div>
+              <h2>实时预览</h2>
+            </div>
+            <span class="canvas-size" id="canvasSizeLabel">1500 × 1500</span>
           </div>
-        </div>
-      </div>
 
-      <!-- 预览区 -->
-      <div class="preview-area">
-        <div class="preview-container">
-          <div class="preview-canvas-wrap" id="previewCanvasWrap">
-            <canvas id="mainPreviewCanvas"></canvas>
+          <div class="preview-container">
+            <div class="preview-canvas-wrap" id="previewCanvasWrap">
+              <canvas id="mainPreviewCanvas"></canvas>
+            </div>
+          </div>
+
+          <div class="preview-text">
+            <div class="field">
+              <label for="previewTextInput">预览文字</label>
+              <textarea id="previewTextInput" rows="4" placeholder="输入要预览的文字…（可换行）"></textarea>
+            </div>
+          </div>
+
+          <div class="export-panel">
+            <div class="download-options">
+              <label>
+                <input type="radio" name="downloadQuality" value="original" checked> 原图高清
+              </label>
+              <label>
+                <input type="radio" name="downloadQuality" value="compressed"> 压缩分享
+              </label>
+            </div>
+            <div class="download-buttons">
+              <button class="btn" id="downloadSquareBtn">下载方角图片</button>
+              <button class="btn btn-primary" id="downloadRoundBtn">下载圆角图片</button>
+            </div>
+            <div class="export-row">
+              <label for="commercialSelect">商用授权</label>
+              <select id="commercialSelect">
+                <option value="可免费商用">可免费商用</option>
+                <option value="需自行购入商用权">需自行购入商用权</option>
+                <option value="未知">未知 (隐藏此项)</option>
+              </select>
+            </div>
+            <p class="footnote">* 纯 Canvas 渲染，预览与下载完全同步；下载文件夹会被记住。</p>
           </div>
         </div>
-        
-        <div class="download-group">
-          <div class="download-options">
-            <label>
-              <input type="radio" name="downloadQuality" value="original" checked> 原图下载 (高清)
-            </label>
-            <label>
-              <input type="radio" name="downloadQuality" value="compressed"> 压缩下载 (方便分享)
-            </label>
-          </div>
-          <div style="display: flex; gap: 1rem;">
-            <button class="btn" id="downloadSquareBtn">下载方角图片</button>
-            <button class="btn btn-primary" id="downloadRoundBtn">下载圆角图片</button>
-          </div>
-        </div>
-        <div class="footnote">* 预览和下载均为 100% 同步的纯 Canvas 渲染。下载文件夹会被记住，浏览器重启后可能需要再确认一次权限。</div>
-      </div>
+      </section>
     </div>
   </div>
+
 
   <!-- 裁剪模态框 -->
   <div class="modal-overlay" id="cropModal">
@@ -776,6 +1437,7 @@
       
       const previewCanvasWrap = document.getElementById('previewCanvasWrap');
       const mainCanvas = document.getElementById('mainPreviewCanvas');
+      const canvasSizeLabel = document.getElementById('canvasSizeLabel');
       const ctxMain = mainCanvas.getContext('2d');
 
       const commercialSelect = document.getElementById('commercialSelect');
@@ -1018,8 +1680,9 @@
           migrateLegacyPresets();
 
           presetSourceHint.textContent = FILE_TEXT_PRESETS.length > 0
-            ? '文案来自 fengmian.json（文件内 ' + FILE_TEXT_PRESETS.length + ' 条）'
-            : 'fengmian.json 里还没有文案';
+            ? '共 ' + FILE_TEXT_PRESETS.length + ' 条预设文案'
+            : '还没有预设文案';
+          presetSourceHint.title = '数据来自 fengmian.json';
           presetSourceHint.style.color = FILE_TEXT_PRESETS.length > 0 ? '' : '#d97706';
         } catch (err) {
           console.error('读取 fengmian.json 失败:', err);
@@ -1292,7 +1955,7 @@
 
       // 清除页面里对文件文案的覆盖/删除，重新以 fengmian.json 为准
       resetTextPresetsBtn.addEventListener('click', function() {
-        if (!confirm('恢复为 fengmian.json 里的文案？\n\n页面里对文件文案的覆盖和删除会被清除；你自己新增的自定义文案会保留。')) return;
+        if (!confirm('恢复为默认文案？\n\n页面里对默认文案的修改会被清除；你自己新增的自定义文案会保留。')) return;
 
         try {
           localStorage.removeItem(PRESET_OVERRIDES_KEY);
@@ -1309,7 +1972,7 @@
           previewTextInput.value = '';
           drawPreviewCanvas();
         }
-        showToast('✅ 已恢复 fengmian.json 的文案');
+        showToast('✅ 已恢复默认文案');
       });
 
       // --- Canvas 核心渲染 ---
@@ -1343,6 +2006,9 @@
         } catch(e) {}
 
         syncCanvasSizeToBackground();
+        if (canvasSizeLabel) {
+          canvasSizeLabel.textContent = mainCanvas.width + ' × ' + mainCanvas.height;
+        }
         const width = mainCanvas.width;
         const height = mainCanvas.height;
 
@@ -2061,6 +2727,7 @@
           gradientCollapseContent.classList.add('open');
           gradientCollapseIcon.style.transform = 'rotate(180deg)';
         }
+        gradientCollapseTrigger.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
       });
 
       function renderGradientGrid() {
