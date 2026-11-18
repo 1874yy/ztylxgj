@@ -695,7 +695,7 @@
             <button class="btn btn-primary" id="downloadRoundBtn">下载圆角图片</button>
           </div>
         </div>
-        <div class="footnote">* 预览和下载均为 100% 同步的纯 Canvas 渲染，设定一次文件夹即可无感下载。</div>
+        <div class="footnote">* 预览和下载均为 100% 同步的纯 Canvas 渲染。下载文件夹会被记住，浏览器重启后可能需要再确认一次权限。</div>
       </div>
     </div>
   </div>
@@ -832,8 +832,10 @@
       let img = new Image();
       let imgLoaded = false;
       let cropRect = { x: 0, y: 0, w: 0, h: 0 };
-      let isDragging = false;
-      let dragStartX = 0, dragStartY = 0;
+      let cropDragMode = null;      // 'move' | 'create' | 'resize'
+      let cropActiveHandle = null;  // nw/n/ne/e/se/s/sw/w
+      let cropStartRect = null;
+      let cropStartPoint = null;
       
       let saveDirectoryHandle = null;
 
@@ -1311,13 +1313,36 @@
       });
 
       // --- Canvas 核心渲染 ---
+      // 画布跟随背景图比例；限制在 1:2 ~ 2:1，避免极端长图/宽图把文字挤没
+      function syncCanvasSizeToBackground() {
+        let targetW = PREVIEW_SIZE;
+        let targetH = PREVIEW_SIZE;
+
+        if (useBgImage && imgLoaded && img.width > 0 && img.height > 0) {
+          const ratio = Math.max(0.5, Math.min(2, img.width / img.height));
+          if (ratio >= 1) {
+            targetW = PREVIEW_SIZE;
+            targetH = Math.round(PREVIEW_SIZE / ratio);
+          } else {
+            targetH = PREVIEW_SIZE;
+            targetW = Math.round(PREVIEW_SIZE * ratio);
+          }
+        }
+
+        if (mainCanvas.width !== targetW || mainCanvas.height !== targetH) {
+          mainCanvas.width = targetW;
+          mainCanvas.height = targetH;
+        }
+      }
+
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
         
         try {
           await document.fonts.load(`16px ${currentFontFamily}`);
         } catch(e) {}
-        
+
+        syncCanvasSizeToBackground();
         const width = mainCanvas.width;
         const height = mainCanvas.height;
 
@@ -1557,9 +1582,100 @@
         ctxMain.fillText(tagText, width / 2, tagY + tagH / 2);
 
         if (useBgImage && imgLoaded && img.width && img.height) {
-          previewCanvasWrap.style.aspectRatio = `${img.width} / ${img.height}`;
+          previewCanvasWrap.style.aspectRatio = `${mainCanvas.width} / ${mainCanvas.height}`;
         } else {
           previewCanvasWrap.style.aspectRatio = '1 / 1';
+        }
+      }
+
+      // --- 记住下载文件夹（把文件夹句柄存进 IndexedDB，刷新后不用重选） ---
+      function openHandleDb() {
+        return new Promise(function(resolve, reject) {
+          if (typeof indexedDB === 'undefined') {
+            reject(new Error('当前浏览器不支持 IndexedDB'));
+            return;
+          }
+          const request = indexedDB.open('fontPreviewTool', 1);
+          request.onupgradeneeded = function() {
+            const db = request.result;
+            if (!db.objectStoreNames.contains('handles')) {
+              db.createObjectStore('handles');
+            }
+          };
+          request.onsuccess = function() { resolve(request.result); };
+          request.onerror = function() { reject(request.error); };
+        });
+      }
+
+      async function saveDirectoryHandleToDb(handle) {
+        if (!handle) return;
+        try {
+          const db = await openHandleDb();
+          await new Promise(function(resolve, reject) {
+            const tx = db.transaction('handles', 'readwrite');
+            tx.objectStore('handles').put(handle, 'saveDirectory');
+            tx.oncomplete = function() { resolve(); };
+            tx.onerror = function() { reject(tx.error); };
+          });
+          db.close();
+        } catch (e) {
+          console.warn('保存下载文件夹失败:', e);
+        }
+      }
+
+      async function loadDirectoryHandleFromDb() {
+        try {
+          const db = await openHandleDb();
+          const handle = await new Promise(function(resolve, reject) {
+            const tx = db.transaction('handles', 'readonly');
+            const req = tx.objectStore('handles').get('saveDirectory');
+            req.onsuccess = function() { resolve(req.result || null); };
+            req.onerror = function() { reject(req.error); };
+          });
+          db.close();
+          return handle;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      async function clearDirectoryHandleFromDb() {
+        try {
+          const db = await openHandleDb();
+          await new Promise(function(resolve, reject) {
+            const tx = db.transaction('handles', 'readwrite');
+            tx.objectStore('handles').delete('saveDirectory');
+            tx.oncomplete = function() { resolve(); };
+            tx.onerror = function() { reject(tx.error); };
+          });
+          db.close();
+        } catch (e) {}
+      }
+
+      async function restoreSaveDirectoryHandle() {
+        if (!window.showDirectoryPicker) return;
+        const handle = await loadDirectoryHandleFromDb();
+        if (!handle) return;
+
+        try {
+          let permission = 'granted';
+          if (typeof handle.queryPermission === 'function') {
+            permission = await handle.queryPermission({ mode: 'readwrite' });
+          }
+          if (permission === 'denied') {
+            await clearDirectoryHandleFromDb();
+            return;
+          }
+          saveDirectoryHandle = handle;
+          if (permission === 'granted') {
+            pathStatus.textContent = `已记住：${handle.name}`;
+            pathStatus.style.color = '#10b981';
+          } else {
+            pathStatus.textContent = `已记住：${handle.name}（下载时确认）`;
+            pathStatus.style.color = '#d97706';
+          }
+        } catch (e) {
+          console.warn('恢复下载文件夹失败:', e);
         }
       }
 
@@ -1582,6 +1698,7 @@
               if (permission === 'granted') {
                 pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
                 pathStatus.style.color = '#10b981';
+                saveDirectoryHandleToDb(saveDirectoryHandle);
               } else {
                 btnElement.textContent = originalText;
                 btnElement.classList.remove('saving');
@@ -1646,6 +1763,10 @@
               await writable.write(blob);
               await writable.close();
               
+              pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
+              pathStatus.style.color = '#10b981';
+              saveDirectoryHandleToDb(saveDirectoryHandle);
+
               btnElement.textContent = '保存成功！';
               btnElement.classList.remove('saving');
               btnElement.classList.add('saved');
@@ -1659,6 +1780,7 @@
 
             // 权限被拒绝或需要重新确认时，不能让按钮一直停在“保存中”
             saveDirectoryHandle = null;
+            clearDirectoryHandleFromDb();
             pathStatus.textContent = '未选择文件夹';
             pathStatus.style.color = '';
             btnElement.textContent = originalText;
@@ -1669,6 +1791,7 @@
             console.error('写入失败:', err);
             alert('保存失败，请重新设定下载文件夹。');
             saveDirectoryHandle = null;
+            clearDirectoryHandleFromDb();
             pathStatus.textContent = '未选择文件夹';
             btnElement.textContent = originalText;
             btnElement.classList.remove('saving');
@@ -1737,8 +1860,11 @@
           if (permission === 'granted') {
             pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
             pathStatus.style.color = '#10b981';
+            saveDirectoryHandleToDb(saveDirectoryHandle);
             showToast('✅ 文件夹设置成功');
           } else {
+            saveDirectoryHandle = null;
+            clearDirectoryHandleFromDb();
             alert('没有获得文件夹写入权限，请重新选择。');
           }
         } catch (err) {
@@ -1907,6 +2033,7 @@
         reader.onload = function(event) {
           uploadedBgImageUrl = event.target.result;
           img = new Image();
+          imgLoaded = false;
           img.onload = function() {
             imgLoaded = true;
             cropRect = { x: 0, y: 0, w: img.width, h: img.height };
@@ -1998,10 +2125,9 @@
         drawPreviewCanvas();
       });
 
-      // 设置保存与读取
+      // 设置保存与读取（不保存文案，文案始终以 fengmian.json / 文案库为准）
       saveSettingsBtn.addEventListener('click', function() {
         const settings = {
-          previewText: previewTextInput.value,
           fontSize: fontSizeRange.value,
           textColor: textColorPicker.value,
           strokeSize: strokeSizeRange.value,
@@ -2046,7 +2172,6 @@
         try {
           const settings = JSON.parse(saved);
           
-          if (settings.previewText) previewTextInput.value = settings.previewText;
           if (settings.fontSize) {
             fontSizeRange.value = settings.fontSize;
             fontSizeValue.textContent = settings.fontSize + 'px';
@@ -2134,6 +2259,7 @@
             if (settings.uploadedBgImageUrl) {
               uploadedBgImageUrl = settings.uploadedBgImageUrl;
               img = new Image();
+              imgLoaded = false;
               img.onload = function() {
                 imgLoaded = true;
                 cropRect = { x: 0, y: 0, w: img.width, h: img.height };
@@ -2179,6 +2305,7 @@
         drawPreviewCanvas();          // 先画一次空背景，避免页面一片空白
         await initTextPresets();      // 读取 fengmian.json
         loadSettings();               // 读取上次保存的设置
+        restoreSaveDirectoryHandle(); // 恢复上次选择的下载文件夹
         if (!previewTextInput.value && textPresets.length > 0) {
           previewTextInput.value = textPresets[0].content;
         }
@@ -2206,6 +2333,11 @@
         
         cropRatioSelect.value = 'free';
         cropRect = { x: 0, y: 0, w: img.width, h: img.height };
+        cropDragMode = null;
+        cropActiveHandle = null;
+        cropStartRect = null;
+        cropStartPoint = null;
+        canvas.style.cursor = 'crosshair';
         
         canvas.style.maxWidth = '100%';
         canvas.style.maxHeight = '100%';
@@ -2220,21 +2352,144 @@
         canvas.addEventListener('mouseleave', onMouseUp);
       }
 
+      function getCropHandleRadius() {
+        const rect = canvas.getBoundingClientRect();
+        const scale = rect.width > 0 ? canvas.width / rect.width : 1;
+        // 始终保证手柄在屏幕上大约 10px，方便点中
+        return Math.max(6, 10 * scale, 10 / scale);
+      }
+
+      function getCropRatio() {
+        const value = cropRatioSelect.value;
+        if (value === 'free') return null;
+        if (value === '16:9') return 16 / 9;
+        if (value === '4:3') return 4 / 3;
+        if (value === '1:1') return 1;
+        return 3 / 4;
+      }
+
+      function getCropMinSize() {
+        return Math.max(12, Math.min(img.width, img.height) * 0.02);
+      }
+
+      function clampCropRect(rect) {
+        const minSize = getCropMinSize();
+        const w = Math.max(minSize, Math.min(rect.w, img.width));
+        const h = Math.max(minSize, Math.min(rect.h, img.height));
+        const x = Math.max(0, Math.min(rect.x, img.width - w));
+        const y = Math.max(0, Math.min(rect.y, img.height - h));
+        return { x: x, y: y, w: w, h: h };
+      }
+
+      function applyCropRatio(rect, ratio) {
+        if (!ratio) return rect;
+
+        let w = rect.w;
+        let h = rect.h;
+        if (w / h > ratio) w = h * ratio;
+        else h = w / ratio;
+
+        let x = rect.x + (rect.w - w) / 2;
+        let y = rect.y + (rect.h - h) / 2;
+
+        if (w > img.width) { w = img.width; h = w / ratio; }
+        if (h > img.height) { h = img.height; w = h * ratio; }
+
+        x = Math.max(0, Math.min(x, img.width - w));
+        y = Math.max(0, Math.min(y, img.height - h));
+        return { x: x, y: y, w: w, h: h };
+      }
+
+      function getCropHandles() {
+        const x = cropRect.x;
+        const y = cropRect.y;
+        const w = cropRect.w;
+        const h = cropRect.h;
+        return {
+          nw: [x, y],
+          n: [x + w / 2, y],
+          ne: [x + w, y],
+          e: [x + w, y + h / 2],
+          se: [x + w, y + h],
+          s: [x + w / 2, y + h],
+          sw: [x, y + h],
+          w: [x, y + h / 2]
+        };
+      }
+
+      function getCropHandleAt(x, y) {
+        const handles = getCropHandles();
+        const hit = getCropHandleRadius() * 1.6;
+        const order = ['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'];
+        for (let i = 0; i < order.length; i++) {
+          const key = order[i];
+          const point = handles[key];
+          if (Math.abs(x - point[0]) <= hit && Math.abs(y - point[1]) <= hit) return key;
+        }
+        return null;
+      }
+
+      function pointInCropRect(x, y) {
+        return x >= cropRect.x && x <= cropRect.x + cropRect.w &&
+               y >= cropRect.y && y <= cropRect.y + cropRect.h;
+      }
+
+      function makeCropRect(start, end) {
+        const minSize = getCropMinSize();
+        const x = Math.min(start.x, end.x);
+        const y = Math.min(start.y, end.y);
+        const w = Math.max(minSize, Math.abs(end.x - start.x));
+        const h = Math.max(minSize, Math.abs(end.y - start.y));
+        return clampCropRect({ x: x, y: y, w: w, h: h });
+      }
+
+      function resizeCropRect(start, handle, x, y) {
+        const minSize = getCropMinSize();
+        let left = start.x;
+        let top = start.y;
+        let right = start.x + start.w;
+        let bottom = start.y + start.h;
+
+        if (handle.indexOf('w') !== -1) left = Math.min(x, right - minSize);
+        if (handle.indexOf('e') !== -1) right = Math.max(x, left + minSize);
+        if (handle.indexOf('n') !== -1) top = Math.min(y, bottom - minSize);
+        if (handle.indexOf('s') !== -1) bottom = Math.max(y, top + minSize);
+
+        left = Math.max(0, left);
+        top = Math.max(0, top);
+        right = Math.min(img.width, right);
+        bottom = Math.min(img.height, bottom);
+
+        if (right - left < minSize) {
+          if (handle.indexOf('w') !== -1) left = Math.max(0, right - minSize);
+          else right = Math.min(img.width, left + minSize);
+        }
+        if (bottom - top < minSize) {
+          if (handle.indexOf('n') !== -1) top = Math.max(0, bottom - minSize);
+          else bottom = Math.min(img.height, top + minSize);
+        }
+
+        return { x: left, y: top, w: right - left, h: bottom - top };
+      }
+
       function drawCanvas() {
         if (!ctx || !imgLoaded) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0);
-        
+
+        // 选区外面压暗
         ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
         ctx.fillRect(0, 0, canvas.width, cropRect.y);
         ctx.fillRect(0, cropRect.y + cropRect.h, canvas.width, canvas.height - (cropRect.y + cropRect.h));
         ctx.fillRect(0, cropRect.y, cropRect.x, cropRect.h);
         ctx.fillRect(cropRect.x + cropRect.w, cropRect.y, canvas.width - (cropRect.x + cropRect.w), cropRect.h);
-        
+
+        // 边框
         ctx.strokeStyle = '#3b82f6';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = Math.max(2, getCropHandleRadius() * 0.25);
         ctx.strokeRect(cropRect.x, cropRect.y, cropRect.w, cropRect.h);
-        
+
+        // 三分线
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -2247,6 +2502,18 @@
         ctx.moveTo(cropRect.x, cropRect.y + cropRect.h * 2 / 3);
         ctx.lineTo(cropRect.x + cropRect.w, cropRect.y + cropRect.h * 2 / 3);
         ctx.stroke();
+
+        // 八个拖拽手柄
+        const handles = getCropHandles();
+        const r = Math.max(4, getCropHandleRadius() * 0.6);
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = '#3b82f6';
+        ctx.lineWidth = Math.max(1, getCropHandleRadius() * 0.12);
+        Object.keys(handles).forEach(function(key) {
+          const point = handles[key];
+          ctx.fillRect(point[0] - r, point[1] - r, r * 2, r * 2);
+          ctx.strokeRect(point[0] - r, point[1] - r, r * 2, r * 2);
+        });
       }
 
       function getCanvasCoords(e) {
@@ -2257,71 +2524,129 @@
         };
       }
 
-      function onMouseDown(e) {
-        e.preventDefault();
-        const { x, y } = getCanvasCoords(e);
-        if (x >= cropRect.x && x <= cropRect.x + cropRect.w && y >= cropRect.y && y <= cropRect.y + cropRect.h) {
-          isDragging = true;
-          dragStartX = x - cropRect.x;
-          dragStartY = y - cropRect.y;
+      function updateCropCursor(x, y) {
+        const handle = getCropHandleAt(x, y);
+        if (handle) {
+          const cursors = {
+            nw: 'nwse-resize', se: 'nwse-resize',
+            ne: 'nesw-resize', sw: 'nesw-resize',
+            n: 'ns-resize', s: 'ns-resize',
+            e: 'ew-resize', w: 'ew-resize'
+          };
+          canvas.style.cursor = cursors[handle];
+        } else if (pointInCropRect(x, y)) {
+          canvas.style.cursor = 'move';
+        } else {
+          canvas.style.cursor = 'crosshair';
         }
       }
 
-      function onMouseMove(e) {
-        if (!isDragging) return;
+      function onMouseDown(e) {
         e.preventDefault();
-        const { x, y } = getCanvasCoords(e);
-        let newX = x - dragStartX;
-        let newY = y - dragStartY;
-        cropRect.x = Math.max(0, Math.min(newX, img.width - cropRect.w));
-        cropRect.y = Math.max(0, Math.min(newY, img.height - cropRect.h));
+        const coords = getCanvasCoords(e);
+        const x = coords.x;
+        const y = coords.y;
+        const handle = getCropHandleAt(x, y);
+
+        if (handle) {
+          cropDragMode = 'resize';
+          cropActiveHandle = handle;
+          cropStartRect = { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h };
+          cropStartPoint = { x: x, y: y };
+          return;
+        }
+
+        if (pointInCropRect(x, y)) {
+          cropDragMode = 'move';
+          cropStartRect = { x: cropRect.x, y: cropRect.y, w: cropRect.w, h: cropRect.h };
+          cropStartPoint = { x: x, y: y };
+          return;
+        }
+
+        // 在选区外面按下并拖动：画一个新选区
+        cropDragMode = 'create';
+        cropStartPoint = { x: x, y: y };
+        cropRect = clampCropRect({ x: x, y: y, w: getCropMinSize(), h: getCropMinSize() });
         drawCanvas();
       }
 
-      function onMouseUp() { isDragging = false; }
+      function onMouseMove(e) {
+        const coords = getCanvasCoords(e);
+        const x = coords.x;
+        const y = coords.y;
+
+        if (!cropDragMode) {
+          updateCropCursor(x, y);
+          return;
+        }
+
+        e.preventDefault();
+
+        if (cropDragMode === 'move') {
+          const dx = x - cropStartPoint.x;
+          const dy = y - cropStartPoint.y;
+          cropRect = clampCropRect({
+            x: cropStartRect.x + dx,
+            y: cropStartRect.y + dy,
+            w: cropStartRect.w,
+            h: cropStartRect.h
+          });
+        } else if (cropDragMode === 'create') {
+          cropRect = makeCropRect(cropStartPoint, { x: x, y: y });
+        } else if (cropDragMode === 'resize') {
+          cropRect = resizeCropRect(cropStartRect, cropActiveHandle, x, y);
+        }
+
+        drawCanvas();
+      }
+
+      function onMouseUp() {
+        if (!cropDragMode) return;
+
+        // 选了比例时，松手后自动吸附到该比例
+        const ratio = getCropRatio();
+        if (ratio && cropDragMode !== 'move') {
+          cropRect = applyCropRatio(cropRect, ratio);
+        }
+        cropRect = clampCropRect(cropRect);
+
+        cropDragMode = null;
+        cropActiveHandle = null;
+        cropStartRect = null;
+        cropStartPoint = null;
+        canvas.style.cursor = 'crosshair';
+        drawCanvas();
+      }
 
       cropRatioSelect.addEventListener('change', function() {
-        const ratioStr = this.value;
-        if (ratioStr === 'free') return;
-        
-        let ratio = ratioStr === '16:9' ? 16/9 : ratioStr === '4:3' ? 4/3 : ratioStr === '1:1' ? 1 : 3/4;
-        
-        const centerX = cropRect.x + cropRect.w / 2;
-        const centerY = cropRect.y + cropRect.h / 2;
-        
-        let newW, newH;
-        if (cropRect.w / cropRect.h > ratio) {
-          newH = cropRect.h;
-          newW = newH * ratio;
-        } else {
-          newW = cropRect.w;
-          newH = newW / ratio;
-        }
-        
-        if (newW > img.width) { newW = img.width; newH = newW / ratio; }
-        if (newH > img.height) { newH = img.height; newW = newH * ratio; }
-        
-        let newX = centerX - newW / 2;
-        let newY = centerY - newH / 2;
-        newX = Math.max(0, Math.min(newX, img.width - newW));
-        newY = Math.max(0, Math.min(newY, img.height - newH));
-        
-        cropRect = { x: newX, y: newY, w: newW, h: newH };
+        const ratio = getCropRatio();
+        if (!ratio) return;
+        cropRect = applyCropRatio(cropRect, ratio);
         drawCanvas();
       });
 
       resetCropBtn.addEventListener('click', function() {
         cropRect = { x: 0, y: 0, w: img.width, h: img.height };
         cropRatioSelect.value = 'free';
+        cropDragMode = null;
+        cropActiveHandle = null;
+        cropStartRect = null;
+        cropStartPoint = null;
+        canvas.style.cursor = 'crosshair';
         drawCanvas();
       });
 
       applyCropBtn.addEventListener('click', function() {
+        const cropW = Math.max(1, Math.round(cropRect.w));
+        const cropH = Math.max(1, Math.round(cropRect.h));
+        const cropX = Math.max(0, Math.round(cropRect.x));
+        const cropY = Math.max(0, Math.round(cropRect.y));
+
         const cropCanvas = document.createElement('canvas');
-        cropCanvas.width = cropRect.w;
-        cropCanvas.height = cropRect.h;
+        cropCanvas.width = cropW;
+        cropCanvas.height = cropH;
         const cropCtx = cropCanvas.getContext('2d');
-        cropCtx.drawImage(img, cropRect.x, cropRect.y, cropRect.w, cropRect.h, 0, 0, cropRect.w, cropRect.h);
+        cropCtx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
         
         uploadedBgImageUrl = cropCanvas.toDataURL('image/png');
         
@@ -2331,10 +2656,14 @@
         document.querySelectorAll('.gradient-item').forEach(el => el.classList.remove('active'));
         
         img = new Image();
+        imgLoaded = false;
         img.onload = function() {
           imgLoaded = true;
           cropRect = { x: 0, y: 0, w: img.width, h: img.height };
           drawPreviewCanvas();
+        };
+        img.onerror = function() {
+          alert('裁剪后的图片加载失败，请重试。');
         };
         img.src = uploadedBgImageUrl;
         
