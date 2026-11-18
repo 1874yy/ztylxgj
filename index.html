@@ -76,7 +76,7 @@
 
     .controls-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -126,6 +126,18 @@
       box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.02);
     }
 
+    /* 修复下拉框点击和黑边问题 */
+    .field select {
+      /* 恢复原生下拉框点击机制 */
+      appearance: auto;
+      -webkit-appearance: menulist;
+      cursor: pointer;
+      z-index: 100;
+      /* 解决某些浏览器黑边问题 */
+      background-color: #f8fafc; 
+      color: #1e293b;
+    }
+
     .field textarea {
       resize: vertical;
       border-radius: 1rem;
@@ -155,10 +167,18 @@
     }
     .field input[type="file"]::file-selector-button:hover { background: rgba(255, 255, 255, 0.8); }
 
-    .range-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+    .range-wrapper { display: flex; align-items: center; gap: 0.4rem; }
+    .range-btn {
+      width: 20px; height: 20px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.8);
+      background: rgba(255,255,255,0.5); cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; color: #475569; font-weight: 600; transition: all 0.2s; user-select: none; padding-bottom: 1px;
+      flex-shrink: 0;
+    }
+    .range-btn:hover { background: rgba(255,255,255,0.9); }
     .range-wrapper input[type="range"] {
       flex: 1; height: 3px; -webkit-appearance: none;
-      background: rgba(0, 0, 0, 0.1); border-radius: 10px;
+      background: rgba(0, 0, 0, 0.1); border-radius: 10px; margin: 0 4px;
+      min-width: 40px;
     }
     .range-wrapper input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none; width: 14px; height: 14px;
@@ -169,6 +189,7 @@
       min-width: 2.6rem; text-align: center; font-weight: 500; font-size: 0.75rem;
       background: rgba(255, 255, 255, 0.6); padding: 0.15rem 0.3rem;
       border-radius: 2rem; border: 1px solid rgba(255, 255, 255, 0.8);
+      flex-shrink: 0;
     }
 
     .color-row { display: flex; align-items: center; gap: 0.6rem; }
@@ -318,7 +339,20 @@
     .path-btn:hover { background: #059669; }
     .path-status { font-size: 0.7rem; color: #64748b; margin-left: 0.5rem; }
 
-    /* Toast 提示 */
+    .text-preset-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .text-preset-actions .btn-small {
+      margin-top: 0;
+      width: 100%;
+      white-space: normal;
+      line-height: 1.2;
+      padding: 0.4rem 0.2rem;
+    }
+
     .toast {
       position: fixed; top: 24px; left: 50%; transform: translateX(-50%) translateY(-100px);
       background: #10b981; color: white; padding: 0.75rem 2rem; border-radius: 2rem;
@@ -381,8 +415,7 @@
   </style>
 </head>
 <body>
-  <!-- 全局 Toast 提示 -->
-  <div class="toast" id="toast">✅ 图片已成功保存到文件夹</div>
+  <div class="toast" id="toast">✅ 操作成功</div>
 
   <div class="app">
     <div class="header">
@@ -434,13 +467,15 @@
           <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
         </div>
 
-        <!-- 样式调整 (带描边) -->
+        <!-- 样式调整 -->
         <div class="control-group">
           <h3>样式调整</h3>
           <div class="field">
             <label>字号</label>
             <div class="range-wrapper">
+              <div class="range-btn" id="fontSizeMinus">−</div>
               <input type="range" id="fontSizeRange" min="10" max="100" value="18" step="1">
+              <div class="range-btn" id="fontSizePlus">+</div>
               <span class="range-value" id="fontSizeValue">18px</span>
             </div>
           </div>
@@ -451,17 +486,29 @@
               <span class="color-hex" id="textColorHex">#1e293b</span>
             </div>
           </div>
-          <!-- 新增：描边设置 -->
+          
           <div class="field">
             <label>文字描边 (适合复杂背景)</label>
-            <div style="display:flex; gap:0.5rem; align-items:center;">
-              <div class="range-wrapper" style="flex:1;">
-                <input type="range" id="strokeSizeRange" min="0" max="10" value="0" step="0.5">
-                <span class="range-value" id="strokeSizeValue">0px</span>
-              </div>
-              <input type="color" id="strokeColorPicker" value="#ffffff" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1);" title="描边颜色">
+            <div class="range-wrapper">
+              <div class="range-btn" id="strokeSizeMinus">−</div>
+              <input type="range" id="strokeSizeRange" min="0" max="10" value="0" step="0.5">
+              <div class="range-btn" id="strokeSizePlus">+</div>
+              <span class="range-value" id="strokeSizeValue">0px</span>
+              <input type="color" id="strokeColorPicker" value="#ffffff" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-left: 0.2rem;" title="描边颜色">
             </div>
           </div>
+
+          <div class="field">
+            <label>文字阴影</label>
+            <div class="range-wrapper">
+              <div class="range-btn" id="shadowSizeMinus">−</div>
+              <input type="range" id="shadowSizeRange" min="0" max="20" value="0" step="1">
+              <div class="range-btn" id="shadowSizePlus">+</div>
+              <span class="range-value" id="shadowSizeValue">0px</span>
+              <input type="color" id="shadowColorPicker" value="#000000" style="width:32px; height:32px; padding:0; border-radius:50%; border:2px solid #fff; box-shadow:0 2px 4px rgba(0,0,0,0.1); margin-left: 0.2rem;" title="阴影颜色">
+            </div>
+          </div>
+
           <div class="field">
             <label>文字对齐</label>
             <div class="align-group">
@@ -542,9 +589,25 @@
           </div>
         </div>
 
+        <!-- 文案管理区 -->
+        <div class="control-group">
+          <h3>文案库</h3>
+          <div class="field">
+            <label>选择预设文案</label>
+            <select id="textPresetSelect"></select>
+          </div>
+          <div class="text-preset-actions">
+            <button class="btn-small" id="saveTextPresetBtn">保存/覆盖</button>
+            <button class="btn-small" id="deleteTextPresetBtn">删除</button>
+            <button class="btn-small" id="exportTextBtn">导出</button>
+            <button class="btn-small" id="importTextBtn">导入</button>
+            <input type="file" id="importFileInput" accept=".json" style="display: none;">
+          </div>
+        </div>
+
         <!-- 预览文字 -->
         <div class="control-group">
-          <h3>预览文字</h3>
+          <h3>当前预览文字</h3>
           <div class="field">
             <textarea id="previewTextInput" rows="3" placeholder="输入要预览的文字…（可换行）"></textarea>
           </div>
@@ -606,6 +669,7 @@
 
   <script>
     (function() {
+      // --- DOM 获取 ---
       const fontFileInput = document.getElementById('fontFileInput');
       const systemFontSelect = document.getElementById('systemFontSelect');
       const currentFontNameSpan = document.getElementById('currentFontName');
@@ -614,10 +678,20 @@
       const textColorPicker = document.getElementById('textColorPicker');
       const textColorHex = document.getElementById('textColorHex');
       
-      // 新增描边 DOM
       const strokeSizeRange = document.getElementById('strokeSizeRange');
       const strokeSizeValue = document.getElementById('strokeSizeValue');
       const strokeColorPicker = document.getElementById('strokeColorPicker');
+
+      const shadowSizeRange = document.getElementById('shadowSizeRange');
+      const shadowSizeValue = document.getElementById('shadowSizeValue');
+      const shadowColorPicker = document.getElementById('shadowColorPicker');
+
+      const fontSizeMinus = document.getElementById('fontSizeMinus');
+      const fontSizePlus = document.getElementById('fontSizePlus');
+      const strokeSizeMinus = document.getElementById('strokeSizeMinus');
+      const strokeSizePlus = document.getElementById('strokeSizePlus');
+      const shadowSizeMinus = document.getElementById('shadowSizeMinus');
+      const shadowSizePlus = document.getElementById('shadowSizePlus');
 
       const bgImageInput = document.getElementById('bgImageInput');
       const bgSourceInput = document.getElementById('bgSourceInput');
@@ -625,6 +699,14 @@
       const clearBgImageBtn = document.getElementById('clearBgImageBtn');
       const openCropModalBtn = document.getElementById('openCropModalBtn');
       const previewTextInput = document.getElementById('previewTextInput');
+      
+      // 文案库相关 DOM
+      const textPresetSelect = document.getElementById('textPresetSelect');
+      const saveTextPresetBtn = document.getElementById('saveTextPresetBtn');
+      const deleteTextPresetBtn = document.getElementById('deleteTextPresetBtn');
+      const exportTextBtn = document.getElementById('exportTextBtn');
+      const importTextBtn = document.getElementById('importTextBtn');
+      const importFileInput = document.getElementById('importFileInput');
       
       const previewCanvasWrap = document.getElementById('previewCanvasWrap');
       const mainCanvas = document.getElementById('mainPreviewCanvas');
@@ -669,6 +751,7 @@
       const chooseSavePathBtn = document.getElementById('chooseSavePathBtn');
       const pathStatus = document.getElementById('pathStatus');
 
+      // --- 状态变量 ---
       let currentFontFamily = '';
       let currentFontDisplayName = '系统默认';
       let uploadedFontUrl = null;
@@ -687,34 +770,15 @@
       
       let saveDirectoryHandle = null;
 
-      // 内部预渲染尺寸
+      // 文案预设数组
+      let textPresets = [];
+
       const PREVIEW_SIZE = 1500; 
       mainCanvas.width = PREVIEW_SIZE;
       mainCanvas.height = PREVIEW_SIZE;
-      
       const BASE_SIZE = 500; 
 
-      // 初始化值
-      previewTextInput.value = `欢迎来到女巫#逍遥の魔法商店\n\n"这间商店的屋子旧旧的好像很久都没有人来过了"\n  #地面上的物品摆放混乱\n「打翻的酒精灯、折断了的飞天扫帚、破烂不堪的巫帽、散落一地的塔罗牌、燃烧过的几截蜡烛」\n「破旧的门窗、空荡荡的货架、无人打理的后花园、一片狼藉的工作台、布满灰尘的魔法厨房」\n种种迹象都表明，这个地方已经荒废了很久……这里还有人来吗？\n各种乱七八糟的香料&草药混合的气味快要让人受不了\n  #门框上写了一行字：\n请不要随意打扰女巫的家，否则会有意想不到的事情发生。\n"看来这个地方不宜久留"\n我留下一串记号 4811449\n地址：夢境森林深处（具体位置未知）\n句号 。 逗号 ， 冒号 ： 顿号 、略号 … 括号 （）`;
-      
-      fontSizeValue.textContent = fontSizeRange.value + 'px';
-      textColorHex.textContent = textColorPicker.value;
-      currentFontFamily = systemFontSelect.value;
-
-      const gradientPresets = [
-        { name: '晨曦', colors: ['#fde2e4', '#c1dfe8', '#f8f0e3'], cx: '30%', cy: '40%' },
-        { name: '雾霭', colors: ['#e0e7ff', '#f3e8ff', '#fce7f3'], cx: '70%', cy: '20%' },
-        { name: '青柠', colors: ['#d1fae5', '#ecfccb', '#fef9c3'], cx: '20%', cy: '70%' },
-        { name: '暖沙', colors: ['#fed7aa', '#fecdd3', '#fef3c7'], cx: '60%', cy: '30%' },
-        { name: '淡紫', colors: ['#e9d5ff', '#fbcfe8', '#e0e7ff'], cx: '40%', cy: '60%' },
-        { name: '海盐', colors: ['#bae6fd', '#cffafe', '#e0f2fe'], cx: '80%', cy: '50%' },
-      ];
-
-      function getGradientCss(preset) {
-        return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
-      }
-
-      // 显示 Toast 提示
+      // --- 初始化与辅助函数 ---
       function showToast(message) {
         toastEl.textContent = message;
         toastEl.classList.add('show');
@@ -723,7 +787,157 @@
         }, 2500);
       }
 
-      // ======= 核心渲染函数 =======
+      function getGradientCss(preset) {
+        return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
+      }
+
+      // --- 文案库：从 JSON 加载及操作 ---
+      async function fetchDefaultPresets() {
+        try {
+          // 读取外部 JSON 文件
+          const response = await fetch('fengmian.json');
+          if (!response.ok) throw new Error('Network response was not ok');
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          console.error('读取默认 JSON 文案失败:', error);
+          // 如果用户在本地直接双击 html 打开（file://），fetch 会失败，给出提示
+          if (window.location.protocol === 'file:') {
+            alert("⚠️ 提示：由于浏览器的安全限制，本地直接双击打开 HTML 无法读取 fengmian.json。\n请使用 Live Server 或部署到服务器上预览。");
+          }
+          // 防止返回空数组导致功能崩溃，给个提示占位
+          return [{ name: '读取失败，请部署运行', content: '请通过 HTTP 服务器访问此页面，以便读取 fengmian.json。' }];
+        }
+      }
+
+      async function initTextPresets() {
+        const defaultPresets = await fetchDefaultPresets();
+        
+        const saved = localStorage.getItem('fontPreviewTextPresets');
+        if (saved) {
+          try {
+            textPresets = JSON.parse(saved);
+          } catch (e) {
+            textPresets = [...defaultPresets];
+          }
+        } else {
+          textPresets = [...defaultPresets];
+        }
+        renderTextPresets();
+      }
+
+      function renderTextPresets() {
+        textPresetSelect.innerHTML = '';
+        textPresets.forEach((preset, index) => {
+          const option = document.createElement('option');
+          option.value = index;
+          option.textContent = preset.name;
+          textPresetSelect.appendChild(option);
+        });
+        if (textPresets.length > 0) {
+          textPresetSelect.selectedIndex = 0;
+        }
+      }
+
+      function saveTextPresetsToStorage() {
+        localStorage.setItem('fontPreviewTextPresets', JSON.stringify(textPresets));
+      }
+
+      // 切换下拉框应用文案
+      textPresetSelect.addEventListener('change', function() {
+        const idx = parseInt(this.value);
+        if (!isNaN(idx) && textPresets[idx]) {
+          previewTextInput.value = textPresets[idx].content;
+          drawPreviewCanvas();
+        }
+      });
+
+      // 保存/覆盖当前文案
+      saveTextPresetBtn.addEventListener('click', function() {
+        const content = previewTextInput.value.trim();
+        if (!content) return alert('当前文案为空，无法保存');
+        
+        const currentIdx = parseInt(textPresetSelect.value);
+        let name = prompt('请为这段文案命名（若当前已选中预设，将直接覆盖）：', 
+          (!isNaN(currentIdx) && textPresets[currentIdx]) ? textPresets[currentIdx].name : `新文案_${new Date().toLocaleTimeString()}`
+        );
+        
+        if (!name) return;
+
+        if (!isNaN(currentIdx) && textPresets[currentIdx] && textPresets[currentIdx].name === name) {
+          textPresets[currentIdx].content = content;
+        } else {
+          textPresets.push({ name, content });
+        }
+        
+        saveTextPresetsToStorage();
+        renderTextPresets();
+        textPresetSelect.value = textPresets.findIndex(p => p.name === name);
+        showToast('✅ 文案已保存到库');
+      });
+
+      // 删除当前文案
+      deleteTextPresetBtn.addEventListener('click', function() {
+        const idx = parseInt(textPresetSelect.value);
+        if (isNaN(idx) || !textPresets[idx]) return;
+
+        if (confirm(`确定要删除文案“${textPresets[idx].name}”吗？`)) {
+          textPresets.splice(idx, 1);
+          saveTextPresetsToStorage();
+          renderTextPresets();
+          if (textPresets.length > 0) {
+            textPresetSelect.selectedIndex = 0;
+            previewTextInput.value = textPresets[0].content;
+          } else {
+            previewTextInput.value = '';
+          }
+          drawPreviewCanvas();
+          showToast('✅ 文案已删除');
+        }
+      });
+
+      // 导出文案库
+      exportTextBtn.addEventListener('click', function() {
+        const dataStr = JSON.stringify(textPresets, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `文案库备份_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('✅ 文案库已导出');
+      });
+
+      // 导入文案库
+      importTextBtn.addEventListener('click', function() {
+        importFileInput.click();
+      });
+
+      importFileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          try {
+            const importedData = JSON.parse(event.target.result);
+            if (Array.isArray(importedData)) {
+              textPresets = textPresets.concat(importedData);
+              saveTextPresetsToStorage();
+              renderTextPresets();
+              showToast('✅ 文案库导入成功');
+            } else {
+              alert('导入文件格式不正确，应为 JSON 数组');
+            }
+          } catch (err) {
+            alert('导入失败：文件不是有效的 JSON');
+          }
+        };
+        reader.readAsText(file);
+        importFileInput.value = '';
+      });
+
+      // --- Canvas 核心渲染 ---
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
         
@@ -734,7 +948,7 @@
         const width = mainCanvas.width;
         const height = mainCanvas.height;
 
-        // 1. 绘制背景
+        // 1. 背景
         ctxMain.clearRect(0, 0, width, height);
         ctxMain.fillStyle = '#f8fafc';
         ctxMain.fillRect(0, 0, width, height);
@@ -792,7 +1006,7 @@
           }
         }
 
-        // 2. 预计算文字排版高度
+        // 2. 预计算文本
         const rawText = previewTextInput.value;
         const baseSize = parseInt(fontSizeRange.value) * (width / BASE_SIZE); 
         const align = currentAlign;
@@ -853,7 +1067,7 @@
           prepareText(rawText, baseSize, '400');
         }
 
-        // 3. 计算垂直居中起点
+        // 3. 居中算法
         const tagMarginBottom = 24 * (width / BASE_SIZE);
         const tagFontSize = Math.round(11 * (width / BASE_SIZE));
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
@@ -874,12 +1088,15 @@
           startY = topOffset + (availableHeight - textTotalHeight) / 2;
         }
 
-        // 4. 绘制文字 (包含描边逻辑)
+        // 4. 绘制文字
         const textColor = textColorPicker.value;
         const strokeSize = parseFloat(strokeSizeRange.value) * (width / BASE_SIZE);
         const strokeColor = strokeColorPicker.value;
 
-        ctxMain.lineJoin = 'round'; // 防止描边出现尖刺
+        const shadowSize = parseFloat(shadowSizeRange.value) * (width / BASE_SIZE);
+        const shadowColor = shadowColorPicker.value;
+
+        ctxMain.lineJoin = 'round';
         ctxMain.textBaseline = 'top';
         
         let currentY = startY;
@@ -899,21 +1116,34 @@
           if (item.text) {
             ctxMain.font = `${item.weight} ${item.size}px ${currentFontFamily}`;
             
+            // 处理阴影
+            if (shadowSize > 0) {
+              ctxMain.shadowColor = shadowColor;
+              ctxMain.shadowBlur = 0;
+              ctxMain.shadowOffsetX = shadowSize * 1.5;
+              ctxMain.shadowOffsetY = shadowSize * 1.5;
+            } else {
+              ctxMain.shadowColor = 'transparent';
+            }
+
             // 先画描边（如果有）
             if (strokeSize > 0) {
               ctxMain.strokeStyle = strokeColor;
-              ctxMain.lineWidth = strokeSize * 2; // Canvas 的 lineWidth 是向两边扩展的，*2 看起来更饱满
+              ctxMain.lineWidth = strokeSize * 2;
               ctxMain.strokeText(item.text, x, currentY);
             }
             
             // 再画填充色
             ctxMain.fillStyle = textColor;
             ctxMain.fillText(item.text, x, currentY);
+            
+            // 重置阴影，防止污染底部标签
+            ctxMain.shadowColor = 'transparent';
           }
           currentY += item.size * lineHeight;
         });
 
-        // 5. 绘制底部标签
+        // 5. 底部标签
         const tagX = (width - tagW) / 2;
         const tagY = height - tagH - tagMarginBottom;
 
@@ -947,7 +1177,7 @@
         }
       }
 
-      // ======= 保存逻辑 =======
+      // --- 下载逻辑 ---
       async function downloadImage(isRound, btnElement) {
         const originalText = btnElement.textContent;
         btnElement.textContent = '保存中...';
@@ -1101,7 +1331,7 @@
         }, 1500);
       }
 
-      // ======= 事件绑定 =======
+      // --- 事件绑定 ---
       chooseSavePathBtn.addEventListener('click', async () => {
         if (!window.showDirectoryPicker) {
           alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
@@ -1120,12 +1350,8 @@
         }
       });
 
-      downloadSquareBtn.addEventListener('click', function() {
-        downloadImage(false, this);
-      });
-      downloadRoundBtn.addEventListener('click', function() {
-        downloadImage(true, this);
-      });
+      downloadSquareBtn.addEventListener('click', function() { downloadImage(false, this); });
+      downloadRoundBtn.addEventListener('click', function() { downloadImage(true, this); });
 
       fontFileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -1178,21 +1404,76 @@
       });
 
       previewTextInput.addEventListener('input', drawPreviewCanvas);
+      
       fontSizeRange.addEventListener('input', function() {
         fontSizeValue.textContent = this.value + 'px';
         drawPreviewCanvas();
       });
+      fontSizeMinus.addEventListener('click', function() {
+        let val = parseInt(fontSizeRange.value);
+        if (val > parseInt(fontSizeRange.min)) {
+          fontSizeRange.value = val - 1;
+          fontSizeValue.textContent = fontSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
+      fontSizePlus.addEventListener('click', function() {
+        let val = parseInt(fontSizeRange.value);
+        if (val < parseInt(fontSizeRange.max)) {
+          fontSizeRange.value = val + 1;
+          fontSizeValue.textContent = fontSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
+
       textColorPicker.addEventListener('input', function() {
         textColorHex.textContent = this.value;
         drawPreviewCanvas();
       });
       
-      // 描边事件
       strokeSizeRange.addEventListener('input', function() {
         strokeSizeValue.textContent = this.value + 'px';
         drawPreviewCanvas();
       });
+      strokeSizeMinus.addEventListener('click', function() {
+        let val = parseFloat(strokeSizeRange.value);
+        if (val > parseFloat(strokeSizeRange.min)) {
+          strokeSizeRange.value = Math.max(0, val - 0.5);
+          strokeSizeValue.textContent = strokeSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
+      strokeSizePlus.addEventListener('click', function() {
+        let val = parseFloat(strokeSizeRange.value);
+        if (val < parseFloat(strokeSizeRange.max)) {
+          strokeSizeRange.value = Math.min(10, val + 0.5);
+          strokeSizeValue.textContent = strokeSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
       strokeColorPicker.addEventListener('input', drawPreviewCanvas);
+
+      shadowSizeRange.addEventListener('input', function() {
+        shadowSizeValue.textContent = this.value + 'px';
+        drawPreviewCanvas();
+      });
+      shadowSizeMinus.addEventListener('click', function() {
+        let val = parseInt(shadowSizeRange.value);
+        if (val > parseInt(shadowSizeRange.min)) {
+          shadowSizeRange.value = val - 1;
+          shadowSizeValue.textContent = shadowSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
+      shadowSizePlus.addEventListener('click', function() {
+        let val = parseInt(shadowSizeRange.value);
+        if (val < parseInt(shadowSizeRange.max)) {
+          shadowSizeRange.value = val + 1;
+          shadowSizeValue.textContent = shadowSizeRange.value + 'px';
+          drawPreviewCanvas();
+        }
+      });
+      shadowColorPicker.addEventListener('input', drawPreviewCanvas);
 
       titleFirstLineCheckbox.addEventListener('change', drawPreviewCanvas);
       
@@ -1313,7 +1594,7 @@
         drawPreviewCanvas();
       });
 
-      // ======= 设置保存与读取 =======
+      // 设置保存与读取
       saveSettingsBtn.addEventListener('click', function() {
         const settings = {
           previewText: previewTextInput.value,
@@ -1321,6 +1602,8 @@
           textColor: textColorPicker.value,
           strokeSize: strokeSizeRange.value,
           strokeColor: strokeColorPicker.value,
+          shadowSize: shadowSizeRange.value,
+          shadowColor: shadowColorPicker.value,
           fontFamily: currentFontFamily,
           fontDisplayName: currentFontDisplayName,
           uploadedFontBase64: uploadedFontBase64,
@@ -1369,6 +1652,13 @@
           }
           if (settings.strokeColor) {
             strokeColorPicker.value = settings.strokeColor;
+          }
+          if (settings.shadowSize !== undefined) {
+            shadowSizeRange.value = settings.shadowSize;
+            shadowSizeValue.textContent = settings.shadowSize + 'px';
+          }
+          if (settings.shadowColor) {
+            shadowColorPicker.value = settings.shadowColor;
           }
           
           if (settings.commercial) commercialSelect.value = settings.commercial;
@@ -1467,9 +1757,16 @@
         }
       }
 
-      loadSettings();
+      // 初始化所有
+      initTextPresets().then(() => {
+        loadSettings();
+        if (!previewTextInput.value && textPresets.length > 0) {
+          previewTextInput.value = textPresets[0].content;
+        }
+        drawPreviewCanvas();
+      });
 
-      // 裁剪功能
+      // 裁剪模态逻辑
       openCropModalBtn.addEventListener('click', function() {
         if (!uploadedBgImageUrl) return alert('请先上传背景图片');
         if (!imgLoaded) return alert('图片正在加载，请稍后再试');
