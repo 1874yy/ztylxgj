@@ -1101,46 +1101,6 @@
     }
 
 
-    /* 字体样张 */
-    .font-specimen {
-      position: relative;
-      margin-top: 0.9rem;
-      min-height: 190px;
-      padding: 1.1rem 0.9rem 0.9rem;
-      border: 1px solid #e8edf4;
-      border-radius: 12px;
-      background:
-        radial-gradient(420px 220px at 8% 0%, rgba(253, 226, 228, 0.55), transparent 62%),
-        radial-gradient(420px 220px at 100% 100%, rgba(224, 242, 254, 0.7), transparent 62%),
-        #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.45rem;
-      overflow: hidden;
-      text-align: center;
-    }
-    .font-specimen-label {
-      position: absolute;
-      top: 0.7rem;
-      left: 0.85rem;
-      font-size: 0.58rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #9aa6b5;
-    }
-    .font-specimen-text {
-      max-width: 100%;
-      font-size: 2.2rem;
-      line-height: 1.15;
-      color: var(--ink);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .font-specimen-meta { font-size: 0.62rem; color: #9aa6b5; }
-
     /* 晕染背景色：预设 + 自定义两栏 */
     #gradientCollapseContent.open {
       display: grid;
@@ -1173,14 +1133,78 @@
     .custom-gradient-box .color-checkbox-group { grid-column: 1 / -1; margin-top: 0.15rem; }
     .custom-gradient-box .generate-btn { grid-column: 1 / -1; margin-top: 0.15rem; }
 
+
+    /* 字体授权检测 */
+    .license-check {
+      margin-top: 0.9rem;
+      min-height: 190px;
+      padding: 0.9rem 1rem;
+      border: 1px solid #e8edf4;
+      border-radius: 12px;
+      background:
+        radial-gradient(420px 220px at 8% 0%, rgba(236, 253, 245, 0.65), transparent 60%),
+        radial-gradient(420px 220px at 100% 100%, rgba(224, 242, 254, 0.6), transparent 60%),
+        #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .license-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.8rem; }
+    .license-title { font-size: 0.78rem; font-weight: 600; color: var(--ink); }
+    .license-sub { margin-top: 0.12rem; font-size: 0.6rem; color: #9aa6b5; }
+    .license-check .btn-small {
+      flex-shrink: 0;
+      padding: 0.4rem 0.7rem;
+      border-color: var(--ink);
+      background: var(--ink);
+      color: #fff;
+    }
+    .license-check .btn-small:hover { background: #1e293b; border-color: #1e293b; }
+    .license-check .btn-small:disabled { opacity: 0.6; cursor: wait; }
+    .license-result { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .license-badge {
+      display: inline-flex; align-items: center;
+      height: 22px; padding: 0 0.55rem;
+      border-radius: 999px;
+      font-size: 0.62rem; font-weight: 600;
+      white-space: nowrap;
+    }
+    .license-badge.is-idle { background: #f1f5f9; color: #94a3b8; }
+    .license-badge.is-free { background: #dcfce7; color: #15803d; }
+    .license-badge.is-warn { background: #fef3c7; color: #b45309; }
+    .license-badge.is-danger { background: #fee2e2; color: #b91c1c; }
+    .license-badge.is-unknown { background: #f1f5f9; color: #64748b; }
+    .license-detail {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.64rem;
+      line-height: 1.45;
+      color: #64748b;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .license-links { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-top: auto; }
+    .license-links a {
+      font-size: 0.63rem;
+      color: #475569;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .license-links a:hover { color: var(--ink); }
+    .license-disclaimer { margin: 0; font-size: 0.57rem; line-height: 1.4; color: #a0aaba; }
+
+    @media (max-width: 560px) {
+      .license-check { min-height: 160px; padding: 0.8rem; }
+    }
+
     /* 下载清晰度居中 */
     .download-options { justify-content: center; }
 
     @media (max-width: 760px) {
       #gradientCollapseContent.open { grid-template-columns: 1fr; }
       .custom-gradient-box { grid-template-columns: minmax(0, 1fr) 96px; }
-      .font-specimen { min-height: 160px; }
-      .font-specimen-text { font-size: 1.9rem; }
     }
     @media (max-width: 560px) {
       body { padding: 0.9rem 0.65rem 1.6rem; }
@@ -1194,8 +1218,6 @@
       .preview-panel { padding: 0.85rem; border-radius: 18px; }
       .preview-text textarea { height: 82px; }
       .section-note { display: none; }
-      .font-specimen { min-height: 150px; }
-      .font-specimen-text { font-size: 1.75rem; }
       .custom-gradient-box { grid-template-columns: minmax(0, 1fr) 88px; }
       .range-btn { width: 28px; height: 28px; }
       .settings-panel input[type="text"],
@@ -1268,10 +1290,23 @@
             </select>
           </div>
           <div class="font-status">当前字体 <span id="currentFontName">系统默认</span></div>
-          <div class="font-specimen">
-            <div class="font-specimen-label">字体样张</div>
-            <div class="font-specimen-text" id="fontSpecimenText">永 字 Aa 123</div>
-            <div class="font-specimen-meta"><span id="fontSpecimenName">系统默认</span></div>
+          <div class="license-check">
+            <div class="license-head">
+              <div>
+                <div class="license-title">字体授权检测</div>
+                <div class="license-sub">本地读取 + Fontsource 查询</div>
+              </div>
+              <button type="button" class="btn-small" id="checkFontLicenseBtn">检测授权</button>
+            </div>
+            <div class="license-result">
+              <span class="license-badge is-idle" id="licenseBadge">未检测</span>
+              <span class="license-detail" id="licenseDetail">上传字体后点击检测，或直接检测当前字体</span>
+            </div>
+            <div class="license-links">
+              <a id="licenseSourceLink" href="#" target="_blank" rel="noopener" hidden>查看许可证</a>
+              <a href="https://fonts.safe.360.cn/" target="_blank" rel="noopener">去 360 查字体</a>
+            </div>
+            <p class="license-disclaimer">检测结果仅供参考，商用前请以字体厂商授权为准。</p>
           </div>
         </section>
 
@@ -1502,14 +1537,17 @@
   </div>
 
   <!-- 文案数据：所有文案内容都在同目录的 fengmian.json 里，页面启动时自动读取 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
   <script>
     (function() {
       // --- DOM 获取 ---
       const fontFileInput = document.getElementById('fontFileInput');
       const systemFontSelect = document.getElementById('systemFontSelect');
       const currentFontNameSpan = document.getElementById('currentFontName');
-      const fontSpecimenText = document.getElementById('fontSpecimenText');
-      const fontSpecimenName = document.getElementById('fontSpecimenName');
+      const checkFontLicenseBtn = document.getElementById('checkFontLicenseBtn');
+      const licenseBadge = document.getElementById('licenseBadge');
+      const licenseDetail = document.getElementById('licenseDetail');
+      const licenseSourceLink = document.getElementById('licenseSourceLink');
       const fontSizeRange = document.getElementById('fontSizeRange');
       const fontSizeValue = document.getElementById('fontSizeValue');
       const textColorPicker = document.getElementById('textColorPicker');
@@ -1624,6 +1662,8 @@
       let currentFontDisplayName = '系统默认';
       let uploadedFontUrl = null;
       let uploadedFontBase64 = null;
+      let uploadedFontDataBuffer = null;
+      let fontsourceCatalogCache = null;
       let uploadedBgImageUrl = null;
       let useBgImage = true;
       let activeGradient = null;
@@ -2114,6 +2154,179 @@
         showToast('✅ 已恢复默认文案');
       });
 
+
+      // --- 字体授权检测 ---
+      function pickNameValue(record) {
+        if (!record) return '';
+        if (typeof record === 'string') return record;
+        const values = Object.values(record);
+        return record.en || record['zh-CN'] || record['zh-Hans'] || values.find(function(value) {
+          return typeof value === 'string' && value;
+        }) || '';
+      }
+
+      function readLocalFontLicense(font) {
+        const names = font && font.names ? font.names : {};
+        return {
+          family: pickNameValue(names.fontFamily) || pickNameValue(names.fullName),
+          license: pickNameValue(names.license),
+          licenseURL: pickNameValue(names.licenseURL),
+          copyright: pickNameValue(names.copyright),
+          fsType: font && font.tables && font.tables.os2 ? font.tables.os2.fsType : null
+        };
+      }
+
+      function classifyLicense(text) {
+        const s = String(text || '').toLowerCase();
+        if (!s) return 'unknown';
+        if (/non[- ]?commercial|not for commercial|not (?:free )?for commercial|personal use(?!\s*(?:and|&)\s*commercial)|any other use is prohibited|prohibited|may only|microsoft supplied font|monotype|requires? (?:a )?(?:commercial )?(?:license|permission)|commercial license|evaluation only|trial version|commercial use is not (?:allowed|permitted|free)|may not be used commercially|仅限个人|非商业|禁止商用|需授权/.test(s)) {
+          return 'restricted';
+        }
+        if (/open font license|\bofl\b|apache|mit license|\bcc0\b|public domain|ubuntu font licence|\bufl\b|free.*commercial|commercial.*free|commercial use (?:is )?(?:permitted|allowed)|可免费商用|免费商用/.test(s)) {
+          return 'free';
+        }
+        return 'unknown';
+      }
+
+      function familySlug(name) {
+        return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      }
+
+      function normalizedFamily(name) {
+        return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+      }
+
+      async function fetchJsonWithTimeout(url, timeoutMs) {
+        const controller = new AbortController();
+        const timer = setTimeout(function() { controller.abort(); }, timeoutMs);
+        try {
+          const response = await fetch(url, {
+            signal: controller.signal,
+            headers: { Accept: 'application/json' }
+          });
+          if (!response.ok) return null;
+          return await response.json();
+        } catch (e) {
+          return null;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      async function lookupFontsource(family) {
+        const id = familySlug(family);
+        if (!id) return null;
+        const direct = await fetchJsonWithTimeout('https://api.fontsource.org/v1/fonts/' + encodeURIComponent(id), 6000);
+        if (direct && direct.license) return direct;
+        if (fontsourceCatalogCache === null) {
+          fontsourceCatalogCache = await fetchJsonWithTimeout('https://api.fontsource.org/v1/fonts', 12000);
+        }
+        if (!Array.isArray(fontsourceCatalogCache)) return null;
+        const target = normalizedFamily(family);
+        if (!target) return null;
+        return fontsourceCatalogCache.find(function(item) {
+          return normalizedFamily(item.family) === target;
+        }) || null;
+      }
+
+      function setLicenseResult(kind, badgeText, detail) {
+        if (!licenseBadge || !licenseDetail) return;
+        licenseBadge.className = 'license-badge ' + kind;
+        licenseBadge.textContent = badgeText;
+        licenseDetail.textContent = detail;
+      }
+
+      function setLicenseSourceLink(url) {
+        if (!licenseSourceLink) return;
+        if (url) {
+          licenseSourceLink.href = url;
+          licenseSourceLink.hidden = false;
+        } else {
+          licenseSourceLink.hidden = true;
+          licenseSourceLink.removeAttribute('href');
+        }
+      }
+
+      async function checkFontLicense() {
+        if (!checkFontLicenseBtn) return;
+        const originalText = checkFontLicenseBtn.textContent;
+        checkFontLicenseBtn.disabled = true;
+        checkFontLicenseBtn.textContent = '检测中…';
+        setLicenseResult('is-idle', '检测中', '正在读取字体信息…');
+        setLicenseSourceLink('');
+
+        try {
+          let local = null;
+          if (uploadedFontDataBuffer && window.opentype) {
+            try {
+              local = readLocalFontLicense(window.opentype.parse(uploadedFontDataBuffer));
+            } catch (e) {
+              console.warn('字体文件解析失败', e);
+            }
+          }
+
+          const family = (local && local.family) || currentFontDisplayName;
+          const found = family ? await lookupFontsource(family) : null;
+
+          let kind = 'is-unknown';
+          let badge = '未知';
+          let detail = '';
+          let commercial = '未知';
+          let link = '';
+
+          const localLicense = local && local.license ? local.license : '';
+          const remoteLicense = found && found.license ? found.license : '';
+
+          if (localLicense) {
+            const decision = classifyLicense(localLicense + ' ' + (local.licenseURL || ''));
+            if (decision === 'free') {
+              kind = 'is-free'; badge = '可免费商用'; commercial = '可免费商用';
+            } else if (decision === 'restricted') {
+              kind = 'is-danger'; badge = '需授权'; commercial = '需自行购入商用权';
+            } else {
+              kind = 'is-warn'; badge = '需确认';
+            }
+            detail = '字体文件许可：' + localLicense;
+            if (local.licenseURL && /^https?:\/\//i.test(local.licenseURL)) link = local.licenseURL;
+            if (local.copyright) licenseDetail.title = local.copyright;
+          } else if (remoteLicense) {
+            const decision = classifyLicense(remoteLicense);
+            if (decision === 'free') {
+              kind = 'is-free'; badge = '可免费商用'; commercial = '可免费商用';
+            } else if (decision === 'restricted') {
+              kind = 'is-danger'; badge = '需授权'; commercial = '需自行购入商用权';
+            } else {
+              kind = 'is-warn'; badge = '需确认';
+            }
+            detail = 'Fontsource：' + found.family + ' · ' + remoteLicense;
+            link = 'https://fontsource.org/fonts/' + encodeURIComponent(found.id);
+            licenseDetail.title = '';
+          } else {
+            detail = '没有读到许可证，Fontsource 也未收录；请用 360 查字体人工确认。';
+            if (!window.opentype && uploadedFontDataBuffer) {
+              detail = '本地解析组件未加载；Fontsource 未收录，请人工确认。';
+            }
+            licenseDetail.title = '';
+          }
+
+          setLicenseResult(kind, badge, detail);
+          setLicenseSourceLink(link);
+          if (commercialSelect) {
+            commercialSelect.value = commercial;
+            drawPreviewCanvas();
+          }
+        } catch (e) {
+          console.warn('授权检测失败', e);
+          setLicenseResult('is-unknown', '检测失败', '请稍后重试，或用 360 查字体人工确认。');
+          setLicenseSourceLink('');
+        } finally {
+          checkFontLicenseBtn.disabled = false;
+          checkFontLicenseBtn.textContent = originalText;
+        }
+      }
+
+      checkFontLicenseBtn.addEventListener('click', checkFontLicense);
+
       // --- Canvas 核心渲染 ---
       // 画布跟随背景图比例；限制在 1:2 ~ 2:1，避免极端长图/宽图把文字挤没
       function syncCanvasSizeToBackground() {
@@ -2137,15 +2350,8 @@
         }
       }
 
-      function updateFontSpecimen() {
-        if (!fontSpecimenText) return;
-        fontSpecimenText.style.fontFamily = currentFontFamily;
-        if (fontSpecimenName) fontSpecimenName.textContent = currentFontDisplayName;
-      }
-
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
-        updateFontSpecimen();
         try {
           await document.fonts.load(`16px ${currentFontFamily}`);
         } catch(e) {}
@@ -2696,6 +2902,15 @@
           return;
         }
 
+        uploadedFontDataBuffer = null;
+        if (file.arrayBuffer) {
+          file.arrayBuffer().then(function(buffer) {
+            uploadedFontDataBuffer = buffer;
+          }).catch(function(err) {
+            console.warn('读取字体文件失败', err);
+          });
+        }
+
         const reader = new FileReader();
         reader.onload = function(event) {
           uploadedFontBase64 = event.target.result;
@@ -2724,6 +2939,7 @@
           
           document.fonts.load(`16px "${uniqueFontFamily}"`).then(() => {
             drawPreviewCanvas();
+            setTimeout(checkFontLicense, 250);
           });
         };
         reader.readAsDataURL(file);
@@ -2733,6 +2949,9 @@
         currentFontFamily = this.value;
         currentFontDisplayName = this.options[this.selectedIndex].text;
         currentFontNameSpan.textContent = currentFontDisplayName;
+        uploadedFontDataBuffer = null;
+        setLicenseResult('is-idle', '未检测', '点击“检测授权”查询当前字体');
+        setLicenseSourceLink('');
         drawPreviewCanvas();
       });
 
