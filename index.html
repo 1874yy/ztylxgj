@@ -126,16 +126,15 @@
       box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.02);
     }
 
-    /* 修复下拉框点击和黑边问题 */
+    /* 彻底修复下拉框：使用原生外观，不再搞半透明，保证能点开 */
     .field select {
-      /* 恢复原生下拉框点击机制 */
-      appearance: auto;
-      -webkit-appearance: menulist;
+      appearance: auto !important;
+      -webkit-appearance: menulist !important;
+      background-color: #ffffff;
       cursor: pointer;
       z-index: 100;
-      /* 解决某些浏览器黑边问题 */
-      background-color: #f8fafc; 
-      color: #1e293b;
+      border-radius: 0.5rem; /* 略微改小圆角，更像原生 */
+      padding: 0.5rem;
     }
 
     .field textarea {
@@ -585,6 +584,7 @@
             <select id="commercialSelect">
               <option value="可免费商用">可免费商用</option>
               <option value="需自行购入商用权">需自行购入商用权</option>
+              <option value="未知">未知 (隐藏此项)</option>
             </select>
           </div>
         </div>
@@ -770,8 +770,65 @@
       
       let saveDirectoryHandle = null;
 
-      // 文案预设数组
-      let textPresets = [];
+      // 文案预设数组 (直接写在内置代码中，避免 fetch 跨域报错)
+      let textPresets = [
+        {
+          name: '旧书店',
+          content: '「拾光书店」将于本月31日闭店，感谢7年零4个月的陪伴。\n#最后的清仓\n「泛黄的旧书、缺页的诗集、折角的航海图、夹着干花的信笺、写满批注的词典」\n「吱呀作响的木梯、落灰的留声机、无人认领的雨伞、墙角那盆快枯死的绿萝」\n我们整理出约1200册书，其中有一部分，扉页上还留着陌生人的名字。\nBook & Memory，都带走吧。\n营业至每晚21:00，咖啡免费，故事自取。\n地址：老城梧桐街17号（二楼，门铃坏了请敲3下）\n句号。逗号，冒号：顿号、省略号…括号（）感叹号！'
+        },
+        {
+          name: '深夜电台',
+          content: 'FM 88.7《午夜慢递》，每周三、五 23:00—01:00 准时发声。\n#本期话题\n「一首老歌、半杯冷掉的茶、3条没发出去的消息、1个想起又放下的人」\n有人说，深夜的电台是给睡不着的人留的一盏小灯。\nListen quietly，别急着回答。\n今晚的BGM来自1998年的一张磁带，音质有些沙哑，但很温柔。\n参与方式：发送短信至 1069xxxx，或在本条下方留言。\n愿你被这个世界温柔以待。\n句号。逗号，冒号：顿号、省略号…括号（）破折号——'
+        },
+        {
+          name: '咖啡馆',
+          content: '「半糖咖啡」雨天限定：点任意1杯热饮，送手写书签1枚。\n#今日推荐\n「肉桂拿铁、海盐焦糖、2块方糖、1本翻旧的诗集、窗外下不停的雨」\n雨天的客人不多，音乐可以放得慢一点。\nSit by the window，看雨，也看路过的人。\n书签是店主手写的，一共20枚，送完为止。\n营业时间：09:00—22:00（雨天不打烊）\n地址：青石巷尽头，门口有把蓝色长椅的那家。\n句号。逗号，冒号：顿号、省略号…括号（）'
+        },
+        {
+          name: '松风琴馆',
+          content: '「松风琴馆」每月望日（农历十五）雅集1次，今已办至第24期。\n#本期曲目\n「《平沙落雁》1曲、《阳关三叠》1曲、新谱小调2首、即兴合奏1段」\n「一炉沉香、2盏清茶、3五知己、满室松风」\n馆主曰：琴不在技，在诚。\nPlay from the heart，听者自知。\n雅集免费，座席有限，先到者坐；迟来者，立听亦可。\n地址：城西松风巷5号（巷口有琴形石1块）\n句号。逗号，冒号：顿号、省略号…括号（）书名号《》'
+        },
+        {
+          name: 'The Lighthouse Log',
+          content: 'Entry 47. Weather: fog.\n\nThe lamp was lit at 18:00.\n\nWind from the northeast, force 5.\n\n1 ship passed at 21:30. No signal.\n\n2 gulls stayed on the rail all night.\n\nThe keeper\'s chair is empty again.\n\n"Keep the light on. Someone out there still needs it."\n\nSigned: K. — Day 219.'
+        },
+        {
+          name: "The Florist's Note",
+          content: 'Closed today. Sorry.\n\n1 bunch of white roses left on the step.\n\n2 cards. 3 phone numbers. No names.\n\n"Take one if you need it. Love should not go to waste."\n\nBack tomorrow at 08:00.'
+        },
+        {
+          name: '来自xhs-Hello羊 1',
+          content: '·二○二三年 一月五日 冬\n\n「亲爱的lamb：\n我从未给你写过信，冬天又开始下雪了。\n我几乎要忘记了你常陪我去的那家咖啡店里的牛乳拿铁是什么口味的了。\n想来有些怀念下班回家开门时你朝我拥抱扑面而来的淡淡清香，我好像再也找不到那种味道。\n最近有些睡不着了，总是躺在床上看着另一个枕头发了很久的呆。\n不知道是为何，你离开之后，桌上的花我也开始常换你喜欢的白洋桔梗，或许是以为有天你会回家打开门，冲我开心的说。'
+        },
+        {
+          name: '来自xhs-Hello羊 2',
+          content: '“是我最喜欢的花”\n你记得的 门牌号是1.2.3.4.5.6.7.8.9\n密码一直都是你的生日，那些你常用的物品我全都放在本来应该在的位置里。\n本来想打一通电话给你，才发现没有任何理由找到你。\n今年的冬天太冷了，冷到我们的关系已经结了冰。\n想必这封信你也不会收到 那就愿你一切平安。」'
+        },
+        {
+          name: '来自xhs-Hello羊 3',
+          content: '✞ ⋆ THE SEASON WHEN WE ARE SEPARATED ⋆ ✞\n ·眼淚 在愛里 是很珍貴的物品嗎\n ‘ 那为什么 我的心 為你疼痛不已 ’\n\n ⁺₊ ꧞ 來自 @Hello羊 和0123456789 未接來電 ₊⁺\n\n + IF YOU MISS ME · PLEASE CALL ME +\n ·想我的話 請給我打電話\n >> 「 晚間 21:53 一通未接來電 」 ♡\n\n ⁺․ 拜託 別讓我的思念 無數次落在沒有回音的雨季 ․⁺'
+        },
+        {
+          name: '来自xhs-Hello羊 4',
+          content: '⁺․ ⪩ 上世紀疼痛展覽架 ⪨︎ ․⁺\n⋆ OLD MEMORY FILM AND SAD GRAMODER ⋆\n 舊記憶膠片 和 悲傷留聲機\n\n· ✝︎ @Hello羊 ︎0123456789 時間溯洄 ✝︎  ·\n\n✞ 愛 本就是細水長流的消耗品\n⋆ CHAIN LOVE IN THE OLD CENTURY ⋆\n 旧世紀鎖鏈愛 · 世界僅此一份\n\n · 〔 決して贅沢を求めたことがない、私は手に入らない 〕\n 從未奢求 我得不到的'
+        },
+        {
+          name: '来自xhs-Hello羊 5',
+          content: '⋆ ꔫ STRAWBERRY GLASS SUGAR KNOT ⋆\n ·[ 叮咚 ] 您有一單甜品需要送達 \n ★ 草莓泡芙 和 珍珠奶昔冰 [ 預計收入 52♡ ]\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n ○ [ @Hello羊 ]正在後廚加急製作中···\n ● 前方剩餘2單 預計等待0123456789分鐘\n\n • 𓏵𓏵𓏏𓏵𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏𓏏 •\n\n𖦹 [ 訂單 正在派送 ] IT IS BEING DELIVERED ···\n ·收到後請及時品嘗 最佳賞味時期3H內 \n · ៸៸>𖥦<៸៸ಣ記得給個好評 喵'
+        },
+        {
+          name: '来自xhs-Hello羊 6',
+          content: '[ 低饱和余温笔记 ] 二○二一年 冬 小雪 ❅\nHi Vino最近いい夢はどうですか?\n‘ Hi Vino 最近好梦如何 ’\n最近發現馥香茉莉有利於安撫我的睡眠\n但夢境減少以後逐漸開始看不清你的身影\n我開始認為茉莉是最接近你的東西\n「 白色 香氣 無暇 忠貞不渝  」\nWhite, fragrant, flawless, loyal\n冗长的梦把我的生命拉的比白日光照的影还长\n这是我写下的第123456789篇笔记\n开始觉得标点符号也成为我梦里的场景\n。 ？ ！ …… ～ # ： “\nVino 私のそばに戻ってきて、私の夢にいないでください\n‘ Vino 回到我的身边 请你别在我的梦里 ’'
+        },
+        {
+          name: '来自xhs-Hello羊 7',
+          content: '✶\n梦境 开始变淡了\n[ 夢が薄れ始めた ]\n✶\n東京 烏雲 薄霧 变成窗前的白纱\n無人修復的時鐘倒影悠悠的轉著\n白色羽毛把童年陰影輕輕的撣去\n那么 谁来 带走 少女的 梦镜 ?\n✶\n在第13456789秒里 她笑着接受这守护的一切坍塌而尽\n留下的是文字的碎片 飘在白色的阴霾里\n， 。 ？ ！ …… ～ # （ ）\n✶\n“ 你知道吗 我总是这么想念你 ♥︎ ? ”\n[ 知ってる？私はいつもあなたがこんなに恋しい♥︎？ ]'
+        },
+        {
+          name: '来自xhs-Hello羊 8',
+          content: '✦ [ レトロエンジェルショップ ] ✦\n· 復古天使店 ·\n‘ ダーリン、何かお手伝いしましょうか ？ ’\n· 亲爱的 有什么可以帮助您 ? ·\n「 ‘ 天使紡織物 ’ 」\n「 僅在天国湖区域 羽毛季節产出 可售出给天国镇的织物天使进行加工 可以得到毛绒外衣 」\n「 ‘ 甜心织物堆 ’」\n「 随机出现在天国区域 白雨季晚间多产 可以进过白日夢砂糖加工製造成造梦衣 使用后可进入好梦乐园 」\n‘ 以上是天國必備物品 ’\n‘ 如果您有需要 可以隨時聯繫我們 天使聯絡線12 ’\n‘ 天使代码为 ， … ～ # “” @ ’\n‘ 天国での楽しい旅行をお祈りします ’\n‘ 祝您在天国旅行愉快 ’'
+        }
+      ];
 
       const PREVIEW_SIZE = 1500; 
       mainCanvas.width = PREVIEW_SIZE;
@@ -791,37 +848,15 @@
         return `radial-gradient(circle at ${preset.cx} ${preset.cy}, ${preset.colors[0]}, ${preset.colors[1]}, ${preset.colors[2]})`;
       }
 
-      // --- 文案库：从 JSON 加载及操作 ---
-      async function fetchDefaultPresets() {
-        try {
-          // 读取外部 JSON 文件
-          const response = await fetch('fengmian.json');
-          if (!response.ok) throw new Error('Network response was not ok');
-          const data = await response.json();
-          return data;
-        } catch (error) {
-          console.error('读取默认 JSON 文案失败:', error);
-          // 如果用户在本地直接双击 html 打开（file://），fetch 会失败，给出提示
-          if (window.location.protocol === 'file:') {
-            alert("⚠️ 提示：由于浏览器的安全限制，本地直接双击打开 HTML 无法读取 fengmian.json。\n请使用 Live Server 或部署到服务器上预览。");
-          }
-          // 防止返回空数组导致功能崩溃，给个提示占位
-          return [{ name: '读取失败，请部署运行', content: '请通过 HTTP 服务器访问此页面，以便读取 fengmian.json。' }];
-        }
-      }
-
-      async function initTextPresets() {
-        const defaultPresets = await fetchDefaultPresets();
-        
+      // --- 文案库渲染与操作 ---
+      function initTextPresets() {
         const saved = localStorage.getItem('fontPreviewTextPresets');
         if (saved) {
           try {
             textPresets = JSON.parse(saved);
           } catch (e) {
-            textPresets = [...defaultPresets];
+            // 如果解析失败，保留默认
           }
-        } else {
-          textPresets = [...defaultPresets];
         }
         renderTextPresets();
       }
@@ -1071,8 +1106,21 @@
         const tagMarginBottom = 24 * (width / BASE_SIZE);
         const tagFontSize = Math.round(11 * (width / BASE_SIZE));
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
-        let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()} · ` : '';
-        tagText += `${commercialSelect.value} · 字体：${currentFontDisplayName}`;
+        let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()}` : '';
+        
+        // 检查商用授权，如果是“未知”则隐藏
+        const commercialVal = commercialSelect.value;
+        if (commercialVal !== '未知') {
+          if (tagText) tagText += ' · ';
+          tagText += `${commercialVal}`;
+        }
+        
+        if (tagText) {
+          tagText += ` · 字体：${currentFontDisplayName}`;
+        } else {
+          tagText = `字体：${currentFontDisplayName}`;
+        }
+
         const textMetrics = ctxMain.measureText(tagText);
         const tagPaddingX = 20 * (width / BASE_SIZE);
         const tagPaddingY = 6 * (width / BASE_SIZE);
@@ -1758,13 +1806,12 @@
       }
 
       // 初始化所有
-      initTextPresets().then(() => {
-        loadSettings();
-        if (!previewTextInput.value && textPresets.length > 0) {
-          previewTextInput.value = textPresets[0].content;
-        }
-        drawPreviewCanvas();
-      });
+      initTextPresets();
+      loadSettings();
+      if (!previewTextInput.value && textPresets.length > 0) {
+        previewTextInput.value = textPresets[0].content;
+      }
+      drawPreviewCanvas();
 
       // 裁剪模态逻辑
       openCropModalBtn.addEventListener('click', function() {
