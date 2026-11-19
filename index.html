@@ -3535,6 +3535,41 @@
         });
       }
 
+      function loadBufferFontFace(family, buffer, timeoutMs) {
+        return new Promise(function(resolve, reject) {
+          if (typeof FontFace === 'undefined') {
+            reject(new Error('浏览器不支持 FontFace'));
+            return;
+          }
+          let settled = false;
+          let face;
+          try {
+            face = new FontFace(family, buffer);
+          } catch (e) {
+            reject(e);
+            return;
+          }
+          const timer = setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            reject(new Error('兼容字体加载超时'));
+          }, timeoutMs);
+
+          face.load().then(function(loadedFace) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            document.fonts.add(loadedFace);
+            resolve(loadedFace);
+          }).catch(function(err) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(err);
+          });
+        });
+      }
+
       function resetUploadedFontToDefault(reason) {
         fontLoadToken++;
         const defaultOption = systemFontSelect.options[0];
@@ -3631,17 +3666,34 @@
           currentFontDisplayName = fontName;
           currentFontNameSpan.textContent = fontName;
           
-          loadFontWithTimeout(`16px "${uniqueFontFamily}"`, 10000).then(function() {
+          loadFontWithTimeout(`16px "${uniqueFontFamily}"`, 20000).then(function() {
             if (loadToken !== fontLoadToken) return;
             drawPreviewCanvas();
             setTimeout(checkFontLicense, 250);
-          }).catch(function(err) {
+          }).catch(async function(err) {
             if (loadToken !== fontLoadToken) return;
-            console.warn('字体加载失败:', err, detected);
-            const reason = detected && detected.kind === 'ttf'
-              ? '文件头是 TrueType，但浏览器仍拒绝加载；可能损坏、受保护或字体表不兼容。'
-              : '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。请换一个字体文件。';
-            resetUploadedFontToDefault(reason);
+            console.warn('常规字体加载失败，尝试 FontFace 兼容模式:', err, detected);
+            showToast('正在尝试兼容方式加载字体…');
+            try {
+              const buffer = await file.arrayBuffer();
+              if (loadToken !== fontLoadToken) return;
+              uploadedFontDataBuffer = buffer;
+              const fallbackFamily = `CustomFontApi_${Date.now()}`;
+              await loadBufferFontFace(fallbackFamily, buffer, 20000);
+              if (loadToken !== fontLoadToken) return;
+              currentFontFamily = `'${fallbackFamily}', 'Arial', sans-serif`;
+              drawPreviewCanvas();
+              setTimeout(checkFontLicense, 250);
+              showToast('字体已通过兼容方式加载');
+            } catch (fallbackErr) {
+              if (loadToken !== fontLoadToken) return;
+              console.warn('兼容字体加载也失败:', fallbackErr, detected);
+              const sizeMB = (file.size / 1024 / 1024).toFixed(1);
+              const baseReason = detected && detected.kind === 'ttf'
+                ? '文件头是 TrueType，但浏览器仍拒绝加载；可能损坏、受保护或字体表不兼容。'
+                : '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。';
+              resetUploadedFontToDefault(baseReason + `（文件 ${sizeMB}MB）`);
+            }
           });
         };
         reader.onerror = function() {
