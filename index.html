@@ -3489,6 +3489,25 @@
         if (e.target === saveImageModal) closeSaveImageModal();
       });
 
+      function detectFontFormatFromDataUrl(dataUrl) {
+        try {
+          const base64 = String(dataUrl || '').split(',')[1] || '';
+          const head = atob(base64.slice(0, 16));
+          const tag = head.slice(0, 4);
+          if (tag === 'OTTO') return { kind: 'otf', mime: 'font/otf', format: 'opentype', label: 'OpenType (CFF)' };
+          if (tag === 'ttcf') return { kind: 'ttc', mime: 'font/collection', format: 'collection', label: 'TrueType Collection (TTC)' };
+          if (tag === 'wOFF') return { kind: 'woff', mime: 'font/woff', format: 'woff', label: 'WOFF' };
+          if (tag === 'wOF2') return { kind: 'woff2', mime: 'font/woff2', format: 'woff2', label: 'WOFF2' };
+          if (tag === 'true' || tag === '\x00\x01\x00\x00') return { kind: 'ttf', mime: 'font/ttf', format: 'truetype', label: 'TrueType' };
+          if (tag.slice(0, 2) === 'PK') return { kind: 'zip', mime: 'application/zip', format: '', label: 'ZIP 压缩包' };
+          if (tag === 'Rar!') return { kind: 'rar', mime: 'application/vnd.rar', format: '', label: 'RAR 压缩包' };
+          if (tag === '%PDF') return { kind: 'pdf', mime: 'application/pdf', format: '', label: 'PDF 文件' };
+          return { kind: 'unknown', mime: 'application/octet-stream', format: '', label: '未知格式' };
+        } catch (e) {
+          return null;
+        }
+      }
+
       function loadFontWithTimeout(fontSpec, timeoutMs) {
         return new Promise(function(resolve, reject) {
           if (!document.fonts || !document.fonts.load) {
@@ -3516,7 +3535,7 @@
         });
       }
 
-      function resetUploadedFontToDefault() {
+      function resetUploadedFontToDefault(reason) {
         fontLoadToken++;
         const defaultOption = systemFontSelect.options[0];
         currentFontFamily = defaultOption ? defaultOption.value : 'system-ui, -apple-system, sans-serif';
@@ -3535,10 +3554,11 @@
         checkFontLicenseBtn.disabled = false;
         checkFontLicenseBtn.textContent = '检测授权';
         if (commercialSelect) commercialSelect.value = '未知';
-        setLicenseResult('is-unknown', '加载失败', '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。请换一个字体文件。');
+        const message = reason || '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。请换一个字体文件。';
+        setLicenseResult('is-unknown', '加载失败', message);
         setLicenseSourceLink('');
         drawPreviewCanvas();
-        showToast('字体加载失败，请换一个字体文件');
+        showToast(message);
       }
 
       fontFileInput.addEventListener('change', function(e) {
@@ -3567,9 +3587,22 @@
           uploadedFontBase64 = event.target.result;
           if (uploadedFontUrl) URL.revokeObjectURL(uploadedFontUrl);
 
-          const fontMime = ext === 'ttf' ? 'font/ttf' :
+          const detected = detectFontFormatFromDataUrl(event.target.result);
+          if (detected && detected.kind === 'ttc') {
+            resetUploadedFontToDefault('这个文件实际是 TTC 字体集合，不是单个 TTF。请用字体工具转换成 TTF/OTF 后再上传。');
+            return;
+          }
+          if (detected && ['zip', 'rar', 'pdf'].includes(detected.kind)) {
+            resetUploadedFontToDefault('这个文件实际是 ' + detected.label + '，不是字体文件。请解压或重新下载字体。');
+            return;
+          }
+
+          const fontMime = detected ? detected.mime : (ext === 'ttf' ? 'font/ttf' :
             ext === 'otf' ? 'font/otf' :
-            ext === 'woff' ? 'font/woff' : 'font/woff2';
+            ext === 'woff' ? 'font/woff' : 'font/woff2');
+          const fontFormat = detected ? detected.format : (ext === 'ttf' ? 'truetype' :
+            ext === 'otf' ? 'opentype' :
+            ext === 'woff' ? 'woff' : 'woff2');
           let fontBlob = file;
           try {
             fontBlob = new Blob([file], { type: fontMime });
@@ -3589,7 +3622,7 @@
           style.textContent = `
             @font-face {
               font-family: '${uniqueFontFamily}';
-              src: url('${uploadedFontUrl}') format('${ext === 'ttf' ? 'truetype' : ext === 'otf' ? 'opentype' : ext === 'woff' ? 'woff' : 'woff2'}');
+              src: url('${uploadedFontUrl}') format('${fontFormat}');
             }
           `;
           document.head.appendChild(style);
@@ -3604,8 +3637,11 @@
             setTimeout(checkFontLicense, 250);
           }).catch(function(err) {
             if (loadToken !== fontLoadToken) return;
-            console.warn('字体加载失败:', err);
-            resetUploadedFontToDefault();
+            console.warn('字体加载失败:', err, detected);
+            const reason = detected && detected.kind === 'ttf'
+              ? '文件头是 TrueType，但浏览器仍拒绝加载；可能损坏、受保护或字体表不兼容。'
+              : '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。请换一个字体文件。';
+            resetUploadedFontToDefault(reason);
           });
         };
         reader.onerror = function() {
