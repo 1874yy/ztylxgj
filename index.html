@@ -1862,6 +1862,7 @@
       let textPresets = [];
       let lastGeneratedCopy = '';
       let fontLoadToken = 0;
+      let uploadedFontRenderBuffer = null;
       const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isMobileDevice = isIOSDevice || /Android|Mobile/i.test(navigator.userAgent);
@@ -3508,6 +3509,192 @@
         }
       }
 
+
+      // 旧式中文 TTF 常见 cmap Format 2（GBK/PRC），浏览器不支持。
+      // 这里在浏览器内把它转成 Unicode Format 12，用户无需本地转换。
+      function repairLegacyCmap(inputBuffer) {
+        try {
+          const bytes = new Uint8Array(inputBuffer);
+          const view = new DataView(inputBuffer);
+          const readTag = function(offset) {
+            return String.fromCharCode(view.getUint8(offset), view.getUint8(offset + 1), view.getUint8(offset + 2), view.getUint8(offset + 3));
+          };
+          if (view.getUint32(0) !== 0x00010000 && readTag(0) !== 'true') {
+            return { repaired: false };
+          }
+
+          const numTables = view.getUint16(4);
+          let cmapRecord = -1;
+          let cmapOffset = 0;
+          let cmapLength = 0;
+          let headOffset = 0;
+          for (let i = 0; i < numTables; i++) {
+            const rec = 12 + i * 16;
+            const tableTag = readTag(rec);
+            if (tableTag === 'cmap') {
+              cmapRecord = rec;
+              cmapOffset = view.getUint32(rec + 8);
+              cmapLength = view.getUint32(rec + 12);
+            } else if (tableTag === 'head') {
+              headOffset = view.getUint32(rec + 8);
+            }
+          }
+          if (cmapRecord < 0 || !headOffset || cmapOffset + cmapLength > bytes.length) {
+            return { repaired: false };
+          }
+
+          const cmapEnd = cmapOffset + cmapLength;
+          const numSubtables = view.getUint16(cmapOffset + 2);
+          let format2Offset = -1;
+          let hasUnicode = false;
+          for (let i = 0; i < numSubtables; i++) {
+            const rec = cmapOffset + 4 + i * 8;
+            if (rec + 8 > cmapEnd) continue;
+            const platform = view.getUint16(rec);
+            const encoding = view.getUint16(rec + 2);
+            const subOffset = cmapOffset + view.getUint32(rec + 4);
+            if (subOffset + 2 > cmapEnd) continue;
+            const format = view.getUint16(subOffset);
+            if (platform === 0 || (platform === 3 && (encoding === 1 || encoding === 10))) {
+              hasUnicode = true;
+            }
+            if (platform === 3 && encoding === 3 && format === 2) {
+              format2Offset = subOffset;
+            }
+          }
+          if (hasUnicode || format2Offset < 0) return { repaired: false };
+
+          const keysOffset = format2Offset + 6;
+          const subHeadersStart = keysOffset + 512;
+          let maxKey = 0;
+          for (let i = 0; i < 256; i++) {
+            maxKey = Math.max(maxKey, view.getUint16(keysOffset + i * 2) / 8);
+          }
+          const decoder = new TextDecoder('gbk');
+          const mapping = new Map();
+
+          for (let high = 0; high < 256; high++) {
+            const key = view.getUint16(keysOffset + high * 2) / 8;
+            const sh = subHeadersStart + key * 8;
+            if (sh + 8 > cmapEnd) continue;
+            const firstCode = view.getUint16(sh);
+            const entryCount = view.getUint16(sh + 2);
+            const idDelta = view.getInt16(sh + 4);
+            const idRangeOffset = view.getUint16(sh + 6);
+            const glyphBase = sh + 6 + idRangeOffset;
+
+            if (key === 0) {
+              if (high < firstCode || high >= firstCode + entryCount) continue;
+              const glyphOffset = glyphBase + (high - firstCode) * 2;
+              if (glyphOffset + 2 > cmapEnd) continue;
+              let gid = view.getUint16(glyphOffset);
+              if (!gid) continue;
+              gid = (gid + idDelta) & 0xffff;
+              if (gid && high > 0 && !mapping.has(high)) mapping.set(high, gid);
+            } else {
+              for (let j = 0; j < entryCount; j++) {
+                const low = firstCode + j;
+                if (low > 255) break;
+                const glyphOffset = glyphBase + j * 2;
+                if (glyphOffset + 2 > cmapEnd) continue;
+                let gid = view.getUint16(glyphOffset);
+                if (!gid) continue;
+                gid = (gid + idDelta) & 0xffff;
+                if (!gid) continue;
+                let decoded;
+                try {
+                  decoded = decoder.decode(new Uint8Array([high, low]));
+                } catch (e) {
+                  continue;
+                }
+                if (!decoded || decoded.length !== 1 || decoded.charCodeAt(0) === 0xFFFD) continue;
+                const codePoint = decoded.codePointAt(0);
+                if (codePoint > 0 && !mapping.has(codePoint)) mapping.set(codePoint, gid);
+              }
+            }
+          }
+
+          if (mapping.size < 10) return { repaired: false, error: 'cmap Format 2 没有可用映射' };
+          const entries = Array.from(mapping.entries()).sort(function(a, b) { return a[0] - b[0]; });
+          const groups = [];
+          for (let i = 0; i < entries.length; i++) {
+            const codePoint = entries[i][0];
+            const gid = entries[i][1];
+            const last = groups[groups.length - 1];
+            if (last && codePoint === last.end + 1 && gid === last.startGlyph + (codePoint - last.start)) {
+              last.end = codePoint;
+            } else {
+              groups.push({ start: codePoint, end: codePoint, startGlyph: gid });
+            }
+          }
+
+          const subLength = 16 + groups.length * 12;
+          const newCmapLength = 12 + subLength;
+          const appendOffset = (bytes.length + 3) & ~3;
+          const totalLength = appendOffset + ((newCmapLength + 3) & ~3);
+          const output = new Uint8Array(totalLength);
+          output.set(bytes, 0);
+          const outView = new DataView(output.buffer);
+
+          let p = appendOffset;
+          outView.setUint16(p, 0);
+          outView.setUint16(p + 2, 1);
+          outView.setUint16(p + 4, 3);
+          outView.setUint16(p + 6, 10);
+          outView.setUint32(p + 8, 12);
+          p += 12;
+          outView.setUint16(p, 12);
+          outView.setUint16(p + 2, 0);
+          outView.setUint32(p + 4, subLength);
+          outView.setUint32(p + 8, 0);
+          outView.setUint32(p + 12, groups.length);
+          p += 16;
+          for (let i = 0; i < groups.length; i++) {
+            outView.setUint32(p, groups[i].start);
+            outView.setUint32(p + 4, groups[i].end);
+            outView.setUint32(p + 8, groups[i].startGlyph);
+            p += 12;
+          }
+
+          const tableChecksum = function(start, length) {
+            let sum = 0;
+            for (let i = 0; i < length; i += 4) {
+              sum = (sum + (((output[start + i] || 0) << 24) | ((output[start + i + 1] || 0) << 16) | ((output[start + i + 2] || 0) << 8) | (output[start + i + 3] || 0))) >>> 0;
+            }
+            return sum >>> 0;
+          };
+
+          outView.setUint32(cmapRecord + 4, tableChecksum(appendOffset, newCmapLength));
+          outView.setUint32(cmapRecord + 8, appendOffset);
+          outView.setUint32(cmapRecord + 12, newCmapLength);
+
+          outView.setUint32(headOffset + 8, 0);
+          let fontSum = 0;
+          for (let i = 0; i < totalLength; i += 4) {
+            fontSum = (fontSum + ((output[i] << 24) | (output[i + 1] << 16) | (output[i + 2] << 8) | output[i + 3])) >>> 0;
+          }
+          outView.setUint32(headOffset + 8, (0xB1B0AFBA - fontSum) >>> 0);
+
+          return { repaired: true, buffer: output.buffer, mappings: mapping.size, groups: groups.length };
+        } catch (e) {
+          return { repaired: false, error: e.message };
+        }
+      }
+
+      function bufferToDataUrl(buffer, mime) {
+        return new Promise(function(resolve, reject) {
+          try {
+            const blob = new Blob([buffer], { type: mime });
+            const reader = new FileReader();
+            reader.onload = function() { resolve(reader.result); };
+            reader.onerror = function() { reject(reader.error || new Error('读取失败')); };
+            reader.readAsDataURL(blob);
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+
       function loadFontWithTimeout(fontSpec, timeoutMs) {
         return new Promise(function(resolve, reject) {
           if (!document.fonts || !document.fonts.load) {
@@ -3579,6 +3766,7 @@
         systemFontSelect.value = currentFontFamily;
         uploadedFontBase64 = null;
         uploadedFontDataBuffer = null;
+        uploadedFontRenderBuffer = null;
         if (uploadedFontUrl) {
           URL.revokeObjectURL(uploadedFontUrl);
           uploadedFontUrl = '';
@@ -3617,7 +3805,7 @@
         }
 
         const reader = new FileReader();
-        reader.onload = function(event) {
+        reader.onload = async function(event) {
           if (loadToken !== fontLoadToken) return;
           uploadedFontBase64 = event.target.result;
           if (uploadedFontUrl) URL.revokeObjectURL(uploadedFontUrl);
@@ -3638,9 +3826,29 @@
           const fontFormat = detected ? detected.format : (ext === 'ttf' ? 'truetype' :
             ext === 'otf' ? 'opentype' :
             ext === 'woff' ? 'woff' : 'woff2');
+
+          let renderBuffer = uploadedFontDataBuffer;
+          if (!renderBuffer && file.arrayBuffer) {
+            try { renderBuffer = await file.arrayBuffer(); } catch (bufferError) { console.warn('读取字体 buffer 失败:', bufferError); }
+          }
+          let repaired = false;
+          if (renderBuffer && detected && (detected.kind === 'ttf' || detected.kind === 'otf')) {
+            const repair = repairLegacyCmap(renderBuffer);
+            if (repair.repaired) {
+              renderBuffer = repair.buffer;
+              repaired = true;
+              uploadedFontDataBuffer = renderBuffer;
+              try { uploadedFontBase64 = await bufferToDataUrl(renderBuffer, fontMime); } catch (base64Error) { console.warn('转换后字体编码失败:', base64Error); }
+              showToast('已自动转换旧字体编码，正在加载…');
+            } else if (repair.error) {
+              console.warn('旧字体编码转换失败:', repair.error);
+            }
+          }
+          uploadedFontRenderBuffer = renderBuffer;
+
           let fontBlob = file;
           try {
-            fontBlob = new Blob([file], { type: fontMime });
+            fontBlob = new Blob([renderBuffer || file], { type: fontMime });
           } catch (blobError) {
             console.warn('字体 Blob 创建失败，使用原始文件:', blobError);
           }
@@ -3675,9 +3883,8 @@
             console.warn('常规字体加载失败，尝试 FontFace 兼容模式:', err, detected);
             showToast('正在尝试兼容方式加载字体…');
             try {
-              const buffer = await file.arrayBuffer();
+              const buffer = uploadedFontRenderBuffer || await file.arrayBuffer();
               if (loadToken !== fontLoadToken) return;
-              uploadedFontDataBuffer = buffer;
               const fallbackFamily = `CustomFontApi_${Date.now()}`;
               await loadBufferFontFace(fallbackFamily, buffer, 20000);
               if (loadToken !== fontLoadToken) return;
@@ -3710,6 +3917,7 @@
         currentFontDisplayName = this.options[this.selectedIndex].text;
         currentFontNameSpan.textContent = currentFontDisplayName;
         uploadedFontDataBuffer = null;
+        uploadedFontRenderBuffer = null;
         setLicenseResult('is-idle', '未检测', '点击“检测授权”查询当前字体');
         setLicenseSourceLink('');
         drawPreviewCanvas();
