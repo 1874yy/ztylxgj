@@ -1166,6 +1166,9 @@
 
 
 
+    .bg-prefix-custom[hidden] { display: none; }
+    .field-grid .field-full { grid-column: 1 / -1; }
+
     /* 文案生成器 */
     .generator-trigger { margin-top: 0.9rem; }
     .generator-content {
@@ -1459,7 +1462,24 @@
               <label>底图来源（显示在预览图底部）</label>
               <input type="text" id="bgSourceInput" value="" placeholder="例：取自网络 / 个人原创…" maxlength="20">
             </div>
+            <div class="field">
+              <label for="bgSourcePrefixMode">底图来源前缀</label>
+              <select id="bgSourcePrefixMode">
+                <option value="default" selected>显示“底图来源：”</option>
+                <option value="none">隐藏前缀（只显示来源）</option>
+                <option value="custom">自定义前缀</option>
+              </select>
+            </div>
+            <div class="field bg-prefix-custom" id="bgSourcePrefixCustomField" hidden>
+              <label for="bgSourcePrefixInput">自定义前缀</label>
+              <input type="text" id="bgSourcePrefixInput" placeholder="例：素材来源" maxlength="12">
+            </div>
+            <div class="field field-full">
+              <label for="customNoteInput">其他自定义便签（可选）</label>
+              <input type="text" id="customNoteInput" value="" placeholder="例：禁止搬运 / 扫码关注" maxlength="30">
+            </div>
           </div>
+          <p class="mini-note">底部标签过长时会自动缩小字号，保证不超出画布。</p>
           <div class="inline-row">
             <label class="checkbox-row">
               <input type="checkbox" id="useBgImageCheckbox" checked>
@@ -1688,6 +1708,10 @@
 
       const bgImageInput = document.getElementById('bgImageInput');
       const bgSourceInput = document.getElementById('bgSourceInput');
+      const bgSourcePrefixMode = document.getElementById('bgSourcePrefixMode');
+      const bgSourcePrefixCustomField = document.getElementById('bgSourcePrefixCustomField');
+      const bgSourcePrefixInput = document.getElementById('bgSourcePrefixInput');
+      const customNoteInput = document.getElementById('customNoteInput');
       const useBgImageCheckbox = document.getElementById('useBgImageCheckbox');
       const clearBgImageBtn = document.getElementById('clearBgImageBtn');
       const openCropModalBtn = document.getElementById('openCropModalBtn');
@@ -2709,6 +2733,24 @@
         }
       }
 
+      function getBgSourceTagText() {
+        const source = bgSourceInput.value.trim();
+        if (!source) return '';
+        const mode = bgSourcePrefixMode.value;
+        if (mode === 'none') return source;
+        if (mode === 'custom') {
+          const custom = bgSourcePrefixInput.value.trim();
+          if (!custom) return source;
+          const prefix = /[：:]\s*$/.test(custom) ? custom : custom + '：';
+          return prefix + source;
+        }
+        return `底图来源：${source}`;
+      }
+
+      function updateBgPrefixCustomField() {
+        bgSourcePrefixCustomField.hidden = bgSourcePrefixMode.value !== 'custom';
+      }
+
       async function drawPreviewCanvas() {
         if (!ctxMain) return;
         try {
@@ -2843,9 +2885,9 @@
 
         // 3. 居中算法
         const tagMarginBottom = 24 * (width / BASE_SIZE);
-        const tagFontSize = Math.round(11 * (width / BASE_SIZE));
+        let tagFontSize = Math.round(11 * (width / BASE_SIZE));
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
-        let tagText = bgSourceInput.value.trim() ? `底图来源：${bgSourceInput.value.trim()}` : '';
+        let tagText = getBgSourceTagText();
         
         // 检查商用授权，如果是“未知”则隐藏
         const commercialVal = commercialSelect.value;
@@ -2860,11 +2902,28 @@
           tagText = `字体：${currentFontDisplayName}`;
         }
 
-        const textMetrics = ctxMain.measureText(tagText);
+        const customNote = customNoteInput.value.trim();
+        if (customNote) {
+          tagText += ` · ${customNote}`;
+        }
+
         const tagPaddingX = 20 * (width / BASE_SIZE);
         const tagPaddingY = 6 * (width / BASE_SIZE);
+        const tagSideMargin = 40 * (width / BASE_SIZE);
+        const maxTagWidth = width - tagSideMargin * 2;
+        const minTagFontSize = Math.max(10, Math.round(6 * (width / BASE_SIZE)));
+
+        let textMetrics;
+        do {
+          ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
+          textMetrics = ctxMain.measureText(tagText);
+          if (textMetrics.width + tagPaddingX * 2 <= maxTagWidth) break;
+          tagFontSize -= 1;
+        } while (tagFontSize > minTagFontSize);
+
         const tagH = tagFontSize + tagPaddingY * 2;
-        const tagW = textMetrics.width + tagPaddingX * 2;
+        const tagW = Math.min(textMetrics.width + tagPaddingX * 2, maxTagWidth);
+        const tagTextMaxWidth = Math.max(20, tagW - tagPaddingX * 2);
         
         const topOffset = 40 * (width / BASE_SIZE);
         const bottomOffset = tagH + tagMarginBottom + 20 * (width / BASE_SIZE);
@@ -2955,7 +3014,7 @@
         ctxMain.font = `500 ${tagFontSize}px system-ui, -apple-system, sans-serif`;
         ctxMain.textAlign = 'center';
         ctxMain.textBaseline = 'middle';
-        ctxMain.fillText(tagText, width / 2, tagY + tagH / 2);
+        ctxMain.fillText(tagText, width / 2, tagY + tagH / 2, tagTextMaxWidth);
 
         if (useBgImage && imgLoaded && img.width && img.height) {
           previewCanvasWrap.style.aspectRatio = `${mainCanvas.width} / ${mainCanvas.height}`;
@@ -3185,6 +3244,11 @@
 
       async function downloadImageForMobile(isRound, btnElement, originalText) {
         try {
+          try {
+            await drawPreviewCanvas();
+          } catch (drawError) {
+            console.warn('手机端下载前刷新预览失败，继续使用当前画布:', drawError);
+          }
           const finalCanvas = createExportCanvas(isRound);
           const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
           if (!blob) throw new Error('toBlob failed');
@@ -3296,6 +3360,11 @@
             }
           }
 
+          try {
+            await drawPreviewCanvas();
+          } catch (drawError) {
+            console.warn('下载前刷新预览失败，继续使用当前画布:', drawError);
+          }
           const finalCanvas = createExportCanvas(isRound);
           const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
           const fileName = getDownloadFileName(isRound);
@@ -3340,7 +3409,12 @@
         }
       }
 
-      function fallbackDownload(isRound, btnElement, originalText) {
+      async function fallbackDownload(isRound, btnElement, originalText) {
+        try {
+          await drawPreviewCanvas();
+        } catch (drawError) {
+          console.warn('备用下载前刷新预览失败，继续使用当前画布:', drawError);
+        }
         const finalCanvas = createExportCanvas(isRound);
         const fileName = getDownloadFileName(isRound);
         
@@ -3562,6 +3636,12 @@
 
       commercialSelect.addEventListener('change', drawPreviewCanvas);
       bgSourceInput.addEventListener('input', drawPreviewCanvas);
+      bgSourcePrefixMode.addEventListener('change', function() {
+        updateBgPrefixCustomField();
+        drawPreviewCanvas();
+      });
+      bgSourcePrefixInput.addEventListener('input', drawPreviewCanvas);
+      customNoteInput.addEventListener('input', drawPreviewCanvas);
       useBgImageCheckbox.addEventListener('change', function() {
         useBgImage = this.checked;
         drawPreviewCanvas();
@@ -3692,6 +3772,9 @@
           uploadedFontBase64: uploadedFontBase64,
           commercial: commercialSelect.value,
           bgSource: bgSourceInput.value,
+          bgSourcePrefixMode: bgSourcePrefixMode.value,
+          bgSourcePrefix: bgSourcePrefixInput.value,
+          customNote: customNoteInput.value,
           useBgImage: useBgImage,
           uploadedBgImageUrl: uploadedBgImageUrl,
           activeGradient: activeGradient,
@@ -3777,6 +3860,10 @@
           
           if (settings.commercial) commercialSelect.value = settings.commercial;
           if (settings.bgSource) bgSourceInput.value = settings.bgSource;
+          if (settings.bgSourcePrefixMode) bgSourcePrefixMode.value = settings.bgSourcePrefixMode;
+          if (settings.bgSourcePrefix) bgSourcePrefixInput.value = settings.bgSourcePrefix;
+          if (settings.customNote) customNoteInput.value = settings.customNote;
+          updateBgPrefixCustomField();
           
           if (settings.customColors) {
             customColor1.value = settings.customColors[0];
@@ -3883,6 +3970,7 @@
 
       // 初始化所有（文案库要等 fengmian.json 读取完成）
       (async function init() {
+        updateBgPrefixCustomField();
         if (!canPickDownloadFolder) {
           chooseSavePathBtn.style.display = 'none';
           pathStatus.textContent = isMobileDevice ? '手机端直接下载' : '使用浏览器下载';
