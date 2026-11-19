@@ -451,6 +451,36 @@
     .modal-footer button.primary:hover { background: #1e293b; }
     .modal-footer button:hover { background: #f1f5f9; }
 
+    .save-image-modal { max-width: 460px; border-radius: 24px; }
+    .save-image-tip {
+      margin-bottom: 0.75rem;
+      font-size: 0.76rem;
+      line-height: 1.55;
+      color: #64748b;
+    }
+    .save-image-preview-wrap {
+      display: flex; align-items: center; justify-content: center;
+      max-height: 52vh;
+      padding: 0.5rem;
+      overflow: auto;
+      border: 1px solid #e8edf4;
+      border-radius: 14px;
+      background: #f8fafc;
+    }
+    .save-image-preview-wrap img {
+      display: block;
+      max-width: 100%;
+      max-height: 48vh;
+      border-radius: 10px;
+    }
+    .save-image-actions { justify-content: stretch; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+    .save-image-actions button {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.7rem 0.8rem;
+      border-radius: 10px;
+    }
+
     @media (max-width: 900px) {
       .header { flex-direction: column; align-items: flex-start; }
     }
@@ -981,9 +1011,10 @@
     }
     .preview-canvas-wrap {
       border: 1px solid #e8edf4;
-      border-radius: 14px;
+      border-radius: 0;
       background: #fff;
       box-shadow: 0 12px 30px -24px rgba(15, 23, 42, 0.4);
+      overflow: hidden;
     }
     .preview-text { margin-top: 0.85rem; }
     .preview-text .field { margin-bottom: 0; }
@@ -1553,7 +1584,7 @@
           <div class="export-panel">
             <div class="download-options">
               <label>
-                <input type="radio" name="downloadQuality" value="original" checked> 原图高清
+                <input type="radio" name="downloadQuality" value="original" checked> 原尺寸 1:1
               </label>
               <label>
                 <input type="radio" name="downloadQuality" value="compressed"> 压缩分享
@@ -1600,6 +1631,24 @@
       <div class="modal-footer">
         <button id="cancelCropBtn">取消</button>
         <button class="primary" id="applyCropBtn">应用裁剪</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 手机端保存图片弹窗 -->
+  <div class="modal-overlay" id="saveImageModal">
+    <div class="modal-content save-image-modal">
+      <div class="modal-header">
+        <h2>保存图片</h2>
+        <button class="modal-close" id="closeSaveImageBtn">&times;</button>
+      </div>
+      <p class="save-image-tip" id="saveImageTip">长按图片保存到相册，或点“分享 / 保存”。</p>
+      <div class="save-image-preview-wrap">
+        <img id="saveImagePreview" alt="字体预览图片">
+      </div>
+      <div class="modal-footer save-image-actions">
+        <button id="downloadImageFileBtn">下载到文件</button>
+        <button class="primary" id="shareImageBtn">分享 / 保存</button>
       </div>
     </div>
   </div>
@@ -1673,6 +1722,12 @@
       const commercialSelect = document.getElementById('commercialSelect');
       const downloadSquareBtn = document.getElementById('downloadSquareBtn');
       const downloadRoundBtn = document.getElementById('downloadRoundBtn');
+      const saveImageModal = document.getElementById('saveImageModal');
+      const saveImagePreview = document.getElementById('saveImagePreview');
+      const saveImageTip = document.getElementById('saveImageTip');
+      const shareImageBtn = document.getElementById('shareImageBtn');
+      const downloadImageFileBtn = document.getElementById('downloadImageFileBtn');
+      const closeSaveImageBtn = document.getElementById('closeSaveImageBtn');
       const toastEl = document.getElementById('toast');
 
       const alignBtns = document.querySelectorAll('.align-btn');
@@ -1782,6 +1837,13 @@
 
       let textPresets = [];
       let lastGeneratedCopy = '';
+      const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isMobileDevice = isIOSDevice || /Android|Mobile/i.test(navigator.userAgent);
+      const canPickDownloadFolder = typeof window.showDirectoryPicker === 'function' && !isMobileDevice;
+      let mobileSaveBlob = null;
+      let mobileSaveFileName = '';
+      let mobileSaveUrl = '';
       const translationCache = new Map();
       const titleEnOverrides = {
         '战争与和平': 'War and Peace',
@@ -3024,6 +3086,155 @@
       }
 
       // --- 下载逻辑 ---
+
+      function safeDownloadName() {
+        let name = String(currentFontDisplayName || '')
+          .replace(/[\u0000-\u001F\u007F]/g, '')
+          .replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u206F]/g, '')
+          .replace(/[\\/:*?"<>|]/g, '_')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/[. ]+$/g, '');
+
+        name = Array.from(name).filter(function(ch) {
+          const code = ch.codePointAt(0);
+          return code < 0xD800 || code > 0xDFFF;
+        }).join('');
+
+        name = Array.from(name).slice(0, 24).join('');
+        return name || '字体';
+      }
+
+      function setPreviewCorner(isRound) {
+        previewCanvasWrap.classList.toggle('is-round', isRound);
+        if (!isRound) {
+          previewCanvasWrap.style.borderRadius = '0px';
+          return;
+        }
+        const rect = previewCanvasWrap.getBoundingClientRect();
+        const size = Math.min(rect.width || 0, rect.height || 0);
+        previewCanvasWrap.style.borderRadius = size > 0 ? Math.round(size * 0.06) + 'px' : '6%';
+      }
+
+      function createExportCanvas(isRound) {
+        const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
+        const exportWidth = quality === 'original' ? mainCanvas.width : Math.min(1200, mainCanvas.width);
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = exportWidth;
+        exportCanvas.height = Math.round(exportWidth * (mainCanvas.height / mainCanvas.width));
+        const eCtx = exportCanvas.getContext('2d');
+        eCtx.drawImage(mainCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
+        if (!isRound) return exportCanvas;
+
+        const roundCanvas = document.createElement('canvas');
+        roundCanvas.width = exportCanvas.width;
+        roundCanvas.height = exportCanvas.height;
+        const rCtx = roundCanvas.getContext('2d');
+        const radius = Math.min(roundCanvas.width, roundCanvas.height) * 0.06;
+        rCtx.beginPath();
+        if (rCtx.roundRect) {
+          rCtx.roundRect(0, 0, roundCanvas.width, roundCanvas.height, radius);
+        } else {
+          rCtx.moveTo(radius, 0);
+          rCtx.lineTo(roundCanvas.width - radius, 0);
+          rCtx.quadraticCurveTo(roundCanvas.width, 0, roundCanvas.width, radius);
+          rCtx.lineTo(roundCanvas.width, roundCanvas.height - radius);
+          rCtx.quadraticCurveTo(roundCanvas.width, roundCanvas.height, roundCanvas.width - radius, roundCanvas.height);
+          rCtx.lineTo(radius, roundCanvas.height);
+          rCtx.quadraticCurveTo(0, roundCanvas.height, 0, roundCanvas.height - radius);
+          rCtx.lineTo(0, radius);
+          rCtx.quadraticCurveTo(0, 0, radius, 0);
+        }
+        rCtx.clip();
+        rCtx.drawImage(exportCanvas, 0, 0);
+        return roundCanvas;
+      }
+
+      function getDownloadFileName(isRound) {
+        return `字体预览_${safeDownloadName()}_${isRound ? '圆角' : '方角'}.png`;
+      }
+
+      function openSaveImageModal(blob, fileName) {
+        mobileSaveBlob = blob;
+        mobileSaveFileName = fileName;
+        if (mobileSaveUrl) URL.revokeObjectURL(mobileSaveUrl);
+        mobileSaveUrl = URL.createObjectURL(blob);
+        saveImagePreview.src = mobileSaveUrl;
+        saveImageTip.textContent = isIOSDevice
+          ? '长按上方图片 → 存储到照片；或点“分享 / 保存”选择“存储图像”。'
+          : '长按上方图片保存到相册；或点“下载到文件”。';
+
+        let canShare = false;
+        try {
+          const file = new File([blob], fileName, { type: 'image/png' });
+          canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+        } catch (e) {}
+        shareImageBtn.style.display = canShare ? '' : 'none';
+        saveImageModal.classList.add('active');
+      }
+
+      function closeSaveImageModal() {
+        saveImageModal.classList.remove('active');
+        saveImagePreview.removeAttribute('src');
+        if (mobileSaveUrl) {
+          URL.revokeObjectURL(mobileSaveUrl);
+          mobileSaveUrl = '';
+        }
+        mobileSaveBlob = null;
+      }
+
+      async function downloadImageForMobile(isRound, btnElement, originalText) {
+        try {
+          const finalCanvas = createExportCanvas(isRound);
+          const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+          if (!blob) throw new Error('toBlob failed');
+
+          const fileName = getDownloadFileName(isRound);
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          a.rel = 'noopener';
+
+          if (!('download' in a)) {
+            URL.revokeObjectURL(url);
+            openSaveImageModal(blob, fileName);
+            btnElement.textContent = originalText;
+            btnElement.classList.remove('saving');
+            return;
+          }
+
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+
+          btnElement.textContent = '已开始下载';
+          btnElement.classList.remove('saving');
+          btnElement.classList.add('saved');
+          showToast('已开始下载，请到浏览器下载列表或“文件”App 查看');
+          setTimeout(() => {
+            btnElement.textContent = originalText;
+            btnElement.classList.remove('saved');
+          }, 1600);
+        } catch (e) {
+          console.warn('手机端下载失败，改为保存弹窗:', e);
+          try {
+            const finalCanvas = createExportCanvas(isRound);
+            const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
+            if (blob) {
+              openSaveImageModal(blob, getDownloadFileName(isRound));
+              btnElement.textContent = originalText;
+              btnElement.classList.remove('saving');
+              return;
+            }
+          } catch (e2) {}
+          btnElement.textContent = originalText;
+          btnElement.classList.remove('saving');
+          showToast('图片生成失败，请重试');
+        }
+      }
+
       async function downloadImage(isRound, btnElement) {
         const originalText = btnElement.textContent;
         btnElement.textContent = '保存中...';
@@ -3031,9 +3242,33 @@
         btnElement.classList.remove('saved');
 
         try {
+          setPreviewCorner(isRound);
+          if (isMobileDevice) {
+            return downloadImageForMobile(isRound, btnElement, originalText);
+          }
+
+          // 先在手势仍然有效时确认“已记住文件夹”的权限
+          if (saveDirectoryHandle) {
+            try {
+              const existingPermission = await saveDirectoryHandle.requestPermission({ mode: 'readwrite' });
+              if (existingPermission !== 'granted') {
+                saveDirectoryHandle = null;
+                clearDirectoryHandleFromDb();
+                pathStatus.textContent = '未选择文件夹';
+                pathStatus.style.color = '';
+              }
+            } catch (err) {
+              console.warn('已记住的下载文件夹不可用:', err);
+              saveDirectoryHandle = null;
+              clearDirectoryHandleFromDb();
+              pathStatus.textContent = '未选择文件夹';
+              pathStatus.style.color = '';
+            }
+          }
+
           if (!saveDirectoryHandle) {
             if (!window.showDirectoryPicker) {
-              alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
+              showToast('当前浏览器不支持设置保存路径，已使用浏览器下载');
               return fallbackDownload(isRound, btnElement, originalText);
             }
             try {
@@ -3044,9 +3279,11 @@
                 pathStatus.style.color = '#10b981';
                 saveDirectoryHandleToDb(saveDirectoryHandle);
               } else {
-                btnElement.textContent = originalText;
-                btnElement.classList.remove('saving');
-                return;
+                saveDirectoryHandle = null;
+                clearDirectoryHandleFromDb();
+                pathStatus.textContent = '未选择文件夹';
+                pathStatus.style.color = '';
+                return fallbackDownload(isRound, btnElement, originalText);
               }
             } catch (err) {
               if (err.name === 'AbortError') {
@@ -3054,91 +3291,46 @@
                 btnElement.classList.remove('saving');
                 return;
               }
-              throw err;
+              console.warn('选择下载文件夹失败，改用浏览器下载:', err);
+              return fallbackDownload(isRound, btnElement, originalText);
             }
           }
 
-          const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
-          let exportWidth = quality === 'original' ? 2400 : 1200;
-          
-          const exportCanvas = document.createElement('canvas');
-          exportCanvas.width = exportWidth;
-          exportCanvas.height = exportWidth * (mainCanvas.height / mainCanvas.width);
-          const eCtx = exportCanvas.getContext('2d');
-          eCtx.drawImage(mainCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
-
-          let finalCanvas = exportCanvas;
-          if (isRound) {
-            const roundCanvas = document.createElement('canvas');
-            roundCanvas.width = exportCanvas.width;
-            roundCanvas.height = exportCanvas.height;
-            const rCtx = roundCanvas.getContext('2d');
-            const radius = Math.min(roundCanvas.width, roundCanvas.height) * 0.06;
-
-            rCtx.beginPath();
-            if (rCtx.roundRect) {
-              rCtx.roundRect(0, 0, roundCanvas.width, roundCanvas.height, radius);
-            } else {
-              rCtx.moveTo(radius, 0);
-              rCtx.lineTo(roundCanvas.width - radius, 0);
-              rCtx.quadraticCurveTo(roundCanvas.width, 0, roundCanvas.width, radius);
-              rCtx.lineTo(roundCanvas.width, roundCanvas.height - radius);
-              rCtx.quadraticCurveTo(roundCanvas.width, roundCanvas.height, roundCanvas.width - radius, roundCanvas.height);
-              rCtx.lineTo(radius, roundCanvas.height);
-              rCtx.quadraticCurveTo(0, roundCanvas.height, 0, roundCanvas.height - radius);
-              rCtx.lineTo(0, radius);
-              rCtx.quadraticCurveTo(0, 0, radius, 0);
-            }
-            rCtx.clip();
-            rCtx.drawImage(exportCanvas, 0, 0);
-            finalCanvas = roundCanvas;
-          }
-
+          const finalCanvas = createExportCanvas(isRound);
           const blob = await new Promise(resolve => finalCanvas.toBlob(resolve, 'image/png'));
-          const safeName = currentFontDisplayName.replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
-          const suffix = isRound ? '圆角' : '方角';
-          const fileName = `字体预览_${safeName}_${suffix}.png`;
+          const fileName = getDownloadFileName(isRound);
+
+          if (!blob) {
+            return fallbackDownload(isRound, btnElement, originalText);
+          }
 
           try {
-            const permission = await saveDirectoryHandle.requestPermission({ mode: 'readwrite' });
-            if (permission === 'granted') {
-              const fileHandle = await saveDirectoryHandle.getFileHandle(fileName, { create: true });
-              const writable = await fileHandle.createWritable();
-              await writable.write(blob);
-              await writable.close();
-              
-              pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
-              pathStatus.style.color = '#10b981';
-              saveDirectoryHandleToDb(saveDirectoryHandle);
+            const fileHandle = await saveDirectoryHandle.getFileHandle(fileName, { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(blob);
+            await writable.close();
 
-              btnElement.textContent = '保存成功！';
-              btnElement.classList.remove('saving');
-              btnElement.classList.add('saved');
-              showToast('✅ 图片已成功保存到指定文件夹');
-              setTimeout(() => {
-                btnElement.textContent = originalText;
-                btnElement.classList.remove('saved');
-              }, 1500);
-              return;
-            }
+            pathStatus.textContent = `已绑定：${saveDirectoryHandle.name}`;
+            pathStatus.style.color = '#10b981';
+            saveDirectoryHandleToDb(saveDirectoryHandle);
 
-            // 权限被拒绝或需要重新确认时，不能让按钮一直停在“保存中”
+            btnElement.textContent = '保存成功！';
+            btnElement.classList.remove('saving');
+            btnElement.classList.add('saved');
+            showToast('✅ 图片已成功保存到指定文件夹');
+            setTimeout(() => {
+              btnElement.textContent = originalText;
+              btnElement.classList.remove('saved');
+            }, 1500);
+            return;
+          } catch (err) {
+            console.warn('文件夹写入失败，改用浏览器下载:', err);
             saveDirectoryHandle = null;
             clearDirectoryHandleFromDb();
             pathStatus.textContent = '未选择文件夹';
             pathStatus.style.color = '';
-            btnElement.textContent = originalText;
-            btnElement.classList.remove('saving');
-            showToast('⚠️ 没有文件夹写入权限，请重新设定下载文件夹');
-            return;
-          } catch (err) {
-            console.error('写入失败:', err);
-            alert('保存失败，请重新设定下载文件夹。');
-            saveDirectoryHandle = null;
-            clearDirectoryHandleFromDb();
-            pathStatus.textContent = '未选择文件夹';
-            btnElement.textContent = originalText;
-            btnElement.classList.remove('saving');
+            showToast('⚠️ 文件夹写入失败，已改用浏览器下载');
+            return fallbackDownload(isRound, btnElement, originalText);
           }
         } catch (error) {
           console.error(error);
@@ -3149,32 +3341,8 @@
       }
 
       function fallbackDownload(isRound, btnElement, originalText) {
-        const quality = document.querySelector('input[name="downloadQuality"]:checked').value;
-        let exportWidth = quality === 'original' ? 2400 : 1200;
-        
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = exportWidth;
-        exportCanvas.height = exportWidth * (mainCanvas.height / mainCanvas.width);
-        const eCtx = exportCanvas.getContext('2d');
-        eCtx.drawImage(mainCanvas, 0, 0, exportCanvas.width, exportCanvas.height);
-
-        let finalCanvas = exportCanvas;
-        if (isRound) {
-          const roundCanvas = document.createElement('canvas');
-          roundCanvas.width = exportCanvas.width;
-          roundCanvas.height = exportCanvas.height;
-          const rCtx = roundCanvas.getContext('2d');
-          const radius = Math.min(roundCanvas.width, roundCanvas.height) * 0.06;
-          rCtx.beginPath();
-          rCtx.roundRect(0, 0, roundCanvas.width, roundCanvas.height, radius);
-          rCtx.clip();
-          rCtx.drawImage(exportCanvas, 0, 0);
-          finalCanvas = roundCanvas;
-        }
-
-        const safeName = currentFontDisplayName.replace(/[\\/:*?"<>|]/g, '_').substring(0, 30);
-        const suffix = isRound ? '圆角' : '方角';
-        const fileName = `字体预览_${safeName}_${suffix}.png`;
+        const finalCanvas = createExportCanvas(isRound);
+        const fileName = getDownloadFileName(isRound);
         
         // 这里不能用 URL.createObjectURL：它只接受 Blob，传 DataURL 字符串会直接报错
         const a = document.createElement('a');
@@ -3182,10 +3350,10 @@
         a.download = fileName;
         a.click();
         
-        btnElement.textContent = '下载完成！';
+        btnElement.textContent = '已开始下载';
         btnElement.classList.remove('saving');
         btnElement.classList.add('saved');
-        showToast('✅ 图片已触发浏览器下载');
+        showToast('已开始下载，请到浏览器下载列表查看');
         setTimeout(() => {
           btnElement.textContent = originalText;
           btnElement.classList.remove('saved');
@@ -3194,8 +3362,8 @@
 
       // --- 事件绑定 ---
       chooseSavePathBtn.addEventListener('click', async () => {
-        if (!window.showDirectoryPicker) {
-          alert('当前浏览器不支持选择保存目录，将使用默认下载方式。');
+        if (!canPickDownloadFolder) {
+          showToast('当前设备不支持设置保存路径，请直接用下载按钮保存图片');
           return;
         }
         try {
@@ -3218,6 +3386,33 @@
 
       downloadSquareBtn.addEventListener('click', function() { downloadImage(false, this); });
       downloadRoundBtn.addEventListener('click', function() { downloadImage(true, this); });
+
+      downloadImageFileBtn.addEventListener('click', function() {
+        if (!mobileSaveUrl) return;
+        const a = document.createElement('a');
+        a.href = mobileSaveUrl;
+        a.download = mobileSaveFileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('已开始下载，请到浏览器下载列表查看');
+      });
+
+      shareImageBtn.addEventListener('click', async function() {
+        if (!mobileSaveBlob) return;
+        try {
+          const file = new File([mobileSaveBlob], mobileSaveFileName, { type: 'image/png' });
+          await navigator.share({ files: [file], title: '字体预览' });
+          showToast('✅ 已打开分享面板');
+        } catch (e) {
+          if (e.name !== 'AbortError') showToast('分享失败，请长按图片保存');
+        }
+      });
+
+      closeSaveImageBtn.addEventListener('click', closeSaveImageModal);
+      saveImageModal.addEventListener('click', function(e) {
+        if (e.target === saveImageModal) closeSaveImageModal();
+      });
 
       fontFileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
@@ -3688,6 +3883,11 @@
 
       // 初始化所有（文案库要等 fengmian.json 读取完成）
       (async function init() {
+        if (!canPickDownloadFolder) {
+          chooseSavePathBtn.style.display = 'none';
+          pathStatus.textContent = isMobileDevice ? '手机端直接下载' : '使用浏览器下载';
+          pathStatus.style.color = '#94a3b8';
+        }
         drawPreviewCanvas();          // 先画一次空背景，避免页面一片空白
         await initTextPresets();      // 读取 fengmian.json
         await loadSettings();         // 读取上次保存的设置（大文件在 IndexedDB）
