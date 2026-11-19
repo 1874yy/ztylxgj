@@ -1348,7 +1348,7 @@
           </div>
           <div class="field">
             <label>上传字体文件 (.ttf, .otf, .woff, .woff2)</label>
-            <input type="file" id="fontFileInput" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2">
+            <input type="file" id="fontFileInput" accept=".ttf,.TTF,.otf,.OTF,.woff,.WOFF,.woff2,.WOFF2,font/ttf,font/otf,font/woff,font/woff2">
           </div>
           <div class="field">
             <label>或选择系统字体</label>
@@ -1861,6 +1861,7 @@
 
       let textPresets = [];
       let lastGeneratedCopy = '';
+      let fontLoadToken = 0;
       const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
       const isMobileDevice = isIOSDevice || /Android|Mobile/i.test(navigator.userAgent);
@@ -3488,6 +3489,58 @@
         if (e.target === saveImageModal) closeSaveImageModal();
       });
 
+      function loadFontWithTimeout(fontSpec, timeoutMs) {
+        return new Promise(function(resolve, reject) {
+          if (!document.fonts || !document.fonts.load) {
+            reject(new Error('浏览器不支持字体加载'));
+            return;
+          }
+          let settled = false;
+          const timer = setTimeout(function() {
+            if (settled) return;
+            settled = true;
+            reject(new Error('字体加载超时'));
+          }, timeoutMs);
+
+          document.fonts.load(fontSpec).then(function(faces) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(faces);
+          }).catch(function(err) {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            reject(err);
+          });
+        });
+      }
+
+      function resetUploadedFontToDefault() {
+        fontLoadToken++;
+        const defaultOption = systemFontSelect.options[0];
+        currentFontFamily = defaultOption ? defaultOption.value : 'system-ui, -apple-system, sans-serif';
+        currentFontDisplayName = defaultOption ? defaultOption.text : '系统默认';
+        currentFontNameSpan.textContent = currentFontDisplayName;
+        systemFontSelect.value = currentFontFamily;
+        uploadedFontBase64 = null;
+        uploadedFontDataBuffer = null;
+        if (uploadedFontUrl) {
+          URL.revokeObjectURL(uploadedFontUrl);
+          uploadedFontUrl = '';
+        }
+        const oldStyle = document.getElementById('dynamic-font-style');
+        if (oldStyle) oldStyle.remove();
+        fontFileInput.value = '';
+        checkFontLicenseBtn.disabled = false;
+        checkFontLicenseBtn.textContent = '检测授权';
+        if (commercialSelect) commercialSelect.value = '未知';
+        setLicenseResult('is-unknown', '加载失败', '浏览器无法读取该字体文件；可能已损坏、受保护或格式不兼容。请换一个字体文件。');
+        setLicenseSourceLink('');
+        drawPreviewCanvas();
+        showToast('字体加载失败，请换一个字体文件');
+      }
+
       fontFileInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -3498,10 +3551,11 @@
           return;
         }
 
+        const loadToken = ++fontLoadToken;
         uploadedFontDataBuffer = null;
         if (file.arrayBuffer) {
           file.arrayBuffer().then(function(buffer) {
-            uploadedFontDataBuffer = buffer;
+            if (loadToken === fontLoadToken) uploadedFontDataBuffer = buffer;
           }).catch(function(err) {
             console.warn('读取字体文件失败', err);
           });
@@ -3509,10 +3563,21 @@
 
         const reader = new FileReader();
         reader.onload = function(event) {
+          if (loadToken !== fontLoadToken) return;
           uploadedFontBase64 = event.target.result;
           if (uploadedFontUrl) URL.revokeObjectURL(uploadedFontUrl);
-          uploadedFontUrl = URL.createObjectURL(file);
-          
+
+          const fontMime = ext === 'ttf' ? 'font/ttf' :
+            ext === 'otf' ? 'font/otf' :
+            ext === 'woff' ? 'font/woff' : 'font/woff2';
+          let fontBlob = file;
+          try {
+            fontBlob = new Blob([file], { type: fontMime });
+          } catch (blobError) {
+            console.warn('字体 Blob 创建失败，使用原始文件:', blobError);
+          }
+          uploadedFontUrl = URL.createObjectURL(fontBlob);
+
           const fontName = file.name.replace(/\.[^/.]+$/, '');
           const uniqueFontFamily = `CustomFont_${Date.now()}`;
 
@@ -3533,15 +3598,26 @@
           currentFontDisplayName = fontName;
           currentFontNameSpan.textContent = fontName;
           
-          document.fonts.load(`16px "${uniqueFontFamily}"`).then(() => {
+          loadFontWithTimeout(`16px "${uniqueFontFamily}"`, 10000).then(function() {
+            if (loadToken !== fontLoadToken) return;
             drawPreviewCanvas();
             setTimeout(checkFontLicense, 250);
+          }).catch(function(err) {
+            if (loadToken !== fontLoadToken) return;
+            console.warn('字体加载失败:', err);
+            resetUploadedFontToDefault();
           });
+        };
+        reader.onerror = function() {
+          if (loadToken !== fontLoadToken) return;
+          console.warn('读取字体文件失败:', reader.error);
+          resetUploadedFontToDefault();
         };
         reader.readAsDataURL(file);
       });
 
       systemFontSelect.addEventListener('change', function() {
+        fontLoadToken++;
         currentFontFamily = this.value;
         currentFontDisplayName = this.options[this.selectedIndex].text;
         currentFontNameSpan.textContent = currentFontDisplayName;
